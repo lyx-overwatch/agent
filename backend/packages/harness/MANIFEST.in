@@ -1,0 +1,6 @@
+include README.md
+include CHANGELOG.md
+include pyproject.toml
+recursive-include agent_sdk *.py
+recursive-include agent_sdk *.md
+recursive-include agent_sdk/presets/deerflow *.md

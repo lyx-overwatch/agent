@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>技能详情弹窗 - SkillHub 设计稿</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      /* 代码/预览切换 */
+      .tab-active {
+        color: #111827;
+        border-bottom: 2px solid #111827;
+      }
+      .tab-inactive {
+        color: #9ca3af;
+        border-bottom: 2px solid transparent;
+      }
+      .tab-inactive:hover {
+        color: #4b5563;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <!--
+      本文件为「技能详情弹窗」组件设计稿
+      参考截图：ScreenShot_2026-06-08_103959_058.png（SKILL.md 预览弹窗）
+      交互说明：
+      1. 从技能市场点击卡片后弹出此模态框
+      2. 左侧展示 skill 目录文件列表
+      3. 右侧展示 SKILL.md 内容（支持预览/源码切换）
+      4. 顶部有「在聊天中试用」按钮
+    -->
+
+    <!-- 背景说明 -->
+    <div class="fixed top-4 left-4 text-xs text-gray-400">
+      <p>设计稿：技能详情弹窗组件</p>
+      <p>参考截图6（SKILL.md 预览）</p>
+    </div>
+
+    <!-- 弹窗容器 -->
+    <div
+      class="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden"
+    >
+      <!-- 顶部栏 -->
+      <div
+        class="h-14 flex items-center justify-between px-5 border-b border-gray-100 flex-shrink-0"
+      >
+        <div class="flex items-center gap-3">
+          <span class="text-sm font-medium text-gray-900">
+            html-presentation-generator
+          </span>
+          <span class="text-xs text-gray-400">全局</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
+            在 Mavis 中试用
+          </button>
+          <button
+            class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+          </button>
+          <button
+            class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 主体：左右分栏 -->
+      <div class="flex flex-1 overflow-hidden">
+        <!-- 左侧：文件列表 -->
+        <div class="w-56 border-r border-gray-100 flex flex-col">
+          <div class="p-3">
+            <div class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+              <i data-lucide="file-json" class="w-4 h-4 text-gray-400"></i>
+              <span class="text-xs text-gray-600">_meta.json</span>
+            </div>
+            <div
+              class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 cursor-pointer"
+            >
+              <i data-lucide="file-text" class="w-4 h-4 text-gray-500"></i>
+              <span class="text-xs text-gray-900 font-medium">SKILL.md</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右侧：内容预览 -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <!-- 文件路径栏 + 预览/源码切换 -->
+          <div
+            class="h-10 flex items-center justify-between px-4 border-b border-gray-100 flex-shrink-0"
+          >
+            <span class="text-xs text-gray-500">SKILL.md</span>
+            <div class="flex items-center gap-1">
+              <button
+                class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                title="预览"
+              >
+                <i data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+              <button
+                class="p-1.5 text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                title="源码"
+              >
+                <i data-lucide="code-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 内容区 -->
+          <div class="flex-1 overflow-y-auto p-6">
+            <!-- SKILL.md 内容展示 -->
+            <div class="max-w-2xl">
+              <!-- YAML frontmatter -->
+              <div class="text-sm text-gray-800 leading-relaxed font-mono">
+                <p>
+                  name: html-presentation-generator description: "Generate
+                  professional multi-page HTML presentations (PPT). Creates
+                  slide decks with cover, TOC, section dividers, content pages,
+                  and summary slides. Supports export to PDF/PPTX. TRIGGERS:
+                  PPT, 演示文稿, presentation, HTML slides, 幻灯片, slide deck,
+                  汇报, 报告."
+                </p>
+              </div>
+
+              <hr class="my-6 border-gray-100" />
+
+              <!-- Markdown 内容 -->
+              <h1 class="text-xl font-bold text-gray-900 mb-4">
+                HTML Presentation Generator
+              </h1>
+
+              <h2 class="text-base font-semibold text-gray-900 mb-3">
+                Overview
+              </h2>
+              <p class="text-sm text-gray-600 leading-relaxed mb-4">
+                You are an expert at generating complete multi-page HTML
+                presentations. Each slide is a standalone HTML file rendered at
+                960×540px. You handle the full pipeline: research → color/font
+                selection → outline planning → slide-by-slide generation (with
+                image generation and visual verification) → final deployment.
+                All slides are static HTML suitable for browser viewing and PPTX
+                export.
+              </p>
+
+              <h2 class="text-base font-semibold text-gray-900 mb-3">
+                Workflow
+              </h2>
+              <ol class="text-sm text-gray-600 leading-relaxed list-decimal list-inside space-y-1 mb-4">
+                <li>
+                  Understand user's topic, audience, and style preferences
+                </li>
+                <li>Research key points and gather supporting information</li>
+                <li>Select color scheme and typography</li>
+                <li>Create detailed outline with slide structure</li>
+                <li>Generate each slide as standalone HTML</li>
+                <li>Verify visual quality and consistency</li>
+                <li>Package final deliverable</li>
+              </ol>
+
+              <h2 class="text-base font-semibold text-gray-900 mb-3">
+                Capabilities
+              </h2>
+              <ul class="text-sm text-gray-600 leading-relaxed list-disc list-inside space-y-1 mb-4">
+                <li>Multi-slide presentations with consistent design</li>
+                <li>Cover page, table of contents, section dividers</li>
+                <li>Content slides with text, charts, and images</li>
+                <li>Summary and Q&A slides</li>
+                <li>Export to PDF or PPTX format</li>
+              </ul>
+
+              <h2 class="text-base font-semibold text-gray-900 mb-3">
+                Triggers
+              </h2>
+              <p class="text-sm text-gray-600 leading-relaxed">
+                Load this skill when user mentions: PPT, presentation, slides,
+                演示文稿, 幻灯片, slide deck, 汇报, 报告, pitch deck, keynote.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      lucide.createIcons();
+    </script>
+  </body>
+</html>

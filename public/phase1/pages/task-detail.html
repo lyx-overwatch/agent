@@ -1,0 +1,1755 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>任务详情 - SkillHub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/antd@4.24.16/dist/antd.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
+    <style>
+      /* ============ 基础 / 动画 ============ */
+      @keyframes messageSlide {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .message-enter {
+        animation: messageSlide 0.3s ease forwards;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .spin {
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes pulseDot {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.35;
+        }
+      }
+      .pulse-dot {
+        animation: pulseDot 1.2s ease-in-out infinite;
+      }
+
+      /* ============ 会话列表：生成中脉冲圆点动效 ============ */
+      @keyframes convPulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.3; transform: scale(0.8); }
+      }
+      .conv-pulse-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #000;
+        flex-shrink: 0;
+        animation: convPulse 1.2s ease-in-out infinite;
+      }
+
+      /* ============ 思考 / 工具卡片折叠 ============ */
+      .fold-body {
+        display: none;
+      }
+      .fold-card.open .fold-body {
+        display: block;
+      }
+      .fold-card.open .fold-arrow {
+        transform: rotate(90deg);
+      }
+      .fold-arrow {
+        transition: transform 0.2s ease;
+      }
+
+      /* ============ 输入框 ============ */
+      .input-card:focus-within {
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+        border-color: #d1d5db;
+      }
+
+      /* ============ 下拉菜单（模型） ============ */
+      .popup-menu {
+        position: absolute;
+        z-index: 50;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        padding: 6px;
+      }
+
+      /* ============ 思考开关 ============ */
+      .toggle-track {
+        width: 34px;
+        height: 20px;
+        border-radius: 10px;
+        background: #d1d5db;
+        position: relative;
+        transition: background 0.2s;
+        flex-shrink: 0;
+      }
+      .toggle-track.on {
+        background: #0072ff;
+      }
+      .toggle-track::after {
+        content: '';
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #fff;
+        top: 2px;
+        left: 2px;
+        transition: transform 0.2s;
+      }
+      .toggle-track.on::after {
+        transform: translateX(14px);
+      }
+
+      /* ============ 生成状态条 ============ */
+      .gen-status {
+        font-size: 13px;
+        color: #6b7280;
+      }
+      .gen-spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid #e5e7eb;
+        border-top-color: #9ca3af;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        flex-shrink: 0;
+      }
+
+      /* ============ 文件树 ============ */
+      .file-tree-root {
+        border-left: 1px solid #e5e7eb;
+        background: #fff;
+      }
+      .tree-node {
+        border-radius: 6px;
+      }
+      .tree-row:hover {
+        background: #f3f4f6;
+      }
+      .tree-children {
+        display: none;
+      }
+      .tree-node.open > .tree-children {
+        display: block;
+      }
+      .tree-node.open > .tree-row .tree-caret {
+        transform: rotate(90deg);
+      }
+      .tree-caret {
+        transition: transform 0.15s;
+      }
+
+      /* ============ 文件树：全屏 / 折叠 ============ */
+      body.file-tree-fullscreen main {
+        display: none;
+      }
+      body.file-tree-fullscreen #file-panel {
+        flex: 1 1 auto;
+        width: auto;
+      }
+      body.file-tree-collapsed #file-panel {
+        display: none;
+      }
+      body.file-tree-collapsed #file-tree-toggle {
+        display: inline-flex;
+      }
+
+      /* ============ 文件类型颜色（统一灰色） ============ */
+      .file-type-pptx { background: #f3f4f6; color: #4b5563; }
+      .file-type-pdf  { background: #f3f4f6; color: #4b5563; }
+      .file-type-docx { background: #f3f4f6; color: #4b5563; }
+      .file-type-xlsx { background: #f3f4f6; color: #4b5563; }
+      .file-type-csv  { background: #f3f4f6; color: #4b5563; }
+      .file-type-img  { background: #f3f4f6; color: #4b5563; }
+      .file-type-code { background: #f3f4f6; color: #4b5563; }
+      .file-type-md   { background: #f3f4f6; color: #4b5563; }
+      .file-type-zip  { background: #f3f4f6; color: #4b5563; }
+      .file-type-other{ background: #f3f4f6; color: #4b5563; }
+      .file-icon-sm {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      /* ============ 消息内文件 chip / 链接 ============ */
+      .file-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 8px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #fff;
+        font-size: 12px;
+        color: #374151;
+      }
+      .file-link {
+        color: #0072ff;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      /* 发送按钮禁用态 */
+      .send-btn:disabled {
+        background: #e5e7eb;
+        color: #fff;
+        cursor: not-allowed;
+      }
+      .send-btn:disabled:hover {
+        background: #e5e7eb;
+      }
+      .file-link:hover {
+        text-decoration: underline;
+      }
+
+      /* ============ Markdown 基础样式 ============ */
+      .md-body {
+        font-size: 14px;
+        line-height: 1.7;
+        color: #1f2937;
+        word-break: break-word;
+      }
+      .md-body p { margin: 4px 0; }
+      .md-body ul, .md-body ol { padding-left: 20px; margin: 6px 0; }
+      .md-body li { margin: 2px 0; }
+      .md-body code {
+        background: #f3f4f6;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 12.5px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .md-body pre {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 10px 12px;
+        overflow-x: auto;
+        margin: 8px 0;
+        font-size: 12.5px;
+      }
+      .md-body pre code { background: transparent; padding: 0; }
+      .md-body h1, .md-body h2, .md-body h3 { margin: 10px 0 6px; font-weight: 600; }
+      .md-body h1 { font-size: 1.3em; }
+      .md-body h2 { font-size: 1.15em; }
+      .md-body h3 { font-size: 1.05em; }
+      .md-body table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+      .md-body th, .md-body td { border: 1px solid #e5e7eb; padding: 5px 10px; text-align: left; }
+      .md-body th { background: #f9fafb; font-weight: 600; }
+
+      /* ============ 预览弹窗 ============ */
+      .preview-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .preview-modal-content {
+        background: white;
+        border-radius: 16px;
+        max-width: 900px;
+        width: 100%;
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .preview-modal-body {
+        flex: 1;
+        overflow: auto;
+        padding: 20px;
+        background: #f3f4f6;
+      }
+      .preview-modal-body img {
+        max-width: 100%;
+        border-radius: 8px;
+        margin: 0 auto;
+        display: block;
+      }
+      .preview-modal-body pre {
+        margin: 0;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        font-size: 13px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        white-space: pre-wrap;
+        color: #1f2937;
+      }
+
+      /* ============ 滚动条 ============ */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #e5e7eb;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #d1d5db;
+      }
+
+      /* 侧边栏收起（桌面端）：只隐藏侧栏，中间区域变宽，不影响高度 */
+      @media (min-width: 1024px) {
+        body.sidebar-collapsed #sidebar {
+          display: none;
+        }
+        body.sidebar-collapsed #sidebar-toggle {
+          display: inline-flex;
+        }
+      }
+    </style>
+  </head>
+  <body class="flex h-screen bg-white overflow-hidden">
+    <!-- 移动端遮罩 -->
+    <div
+      id="sidebar-overlay"
+      class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"
+      onclick="closeSidebar()"
+    ></div>
+
+    <!-- ============================================================
+        左：会话侧栏（导航 + 新对话 + 会话列表）
+        · 会话状态点 pending/running/completed/cancelled/error
+        · 会话 meta：token 用量 + 缓存命中
+        · hover 显示删除；空态
+    ============================================================ -->
+    <aside
+      id="sidebar"
+      class="fixed lg:static inset-y-0 left-0 z-50 w-60 bg-white border-r border-gray-200 flex flex-col -translate-x-full lg:translate-x-0 transition-transform duration-200"
+    >
+      <!-- Logo + 收起按钮 -->
+      <div
+        class="h-14 flex items-center justify-between px-4"
+      >
+        <a
+          href="/"
+          class="flex items-center hover:opacity-80 transition-opacity"
+        >
+          <span class="text-base font-bold text-gray-900">Agent</span>
+        </a>
+        <button
+          onclick="toggleSidebarCollapse()"
+          class="p-2 -mr-2 hover:bg-gray-100 rounded-md transition-colors"
+          title="收起侧边栏"
+        >
+          <i data-lucide="panel-left-close" class="w-4 h-4 text-gray-500"></i>
+        </button>
+      </div>
+
+      <!-- 导航菜单 -->
+      <nav class="px-3 py-3 space-y-1">
+        <a
+          href="chat.html"
+          class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50"
+        >
+          <i data-lucide="message-circle" class="w-4 h-4"></i>
+          工作台
+        </a>
+        <a
+          href="market.html"
+          class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50"
+        >
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          技能
+        </a>
+      </nav>
+
+      <!-- 会话列表 -->
+      <div class="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+        <div class="text-xs text-gray-400 mb-2 px-3">最近会话</div>
+
+        <!-- 会话：completed（激活） -->
+        <div
+          class="conv-item group flex items-center gap-2.5 px-3 py-1.5 rounded-lg cursor-pointer bg-gray-100 transition-colors"
+          data-token="12.4K"
+          data-cache="45%"
+          onclick="setActiveConv(this)"
+        >
+          <span class="flex-1 min-w-0 text-sm text-gray-900 truncate">帮我分析季度销售 CSV 数据</span>
+          <button
+            onclick="event.stopPropagation(); deleteConv(this)"
+            class="p-1 text-gray-400 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <!-- 会话：running -->
+        <div
+          class="conv-item group flex items-center gap-2.5 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+          data-token="6.8K"
+          onclick="setActiveConv(this)"
+        >
+          <span class="flex-1 min-w-0 text-sm text-gray-700 truncate">生成小红书趋势报告</span>
+          <span class="conv-pulse-dot"></span>
+          <button
+            onclick="event.stopPropagation(); deleteConv(this)"
+            class="p-1 text-gray-400 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <!-- 会话：completed -->
+        <div
+          class="conv-item group flex items-center gap-2.5 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+          data-token="3.2K"
+          data-cache="38%"
+          onclick="setActiveConv(this)"
+        >
+          <span class="flex-1 min-w-0 text-sm text-gray-700 truncate">把会议纪要整理成周报</span>
+          <button
+            onclick="event.stopPropagation(); deleteConv(this)"
+            class="p-1 text-gray-400 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <!-- 会话：cancelled -->
+        <div
+          class="conv-item group flex items-center gap-2.5 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+          data-token="1.5K"
+          onclick="setActiveConv(this)"
+        >
+          <span class="flex-1 min-w-0 text-sm text-gray-700 truncate">解析这份 PDF 合同</span>
+          <button
+            onclick="event.stopPropagation(); deleteConv(this)"
+            class="p-1 text-gray-400 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <!-- 会话：error -->
+        <div
+          class="conv-item group flex items-center gap-2.5 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+          data-token="0.9K"
+          data-cache="12%"
+          data-has-files="false"
+          onclick="setActiveConv(this)"
+        >
+          <span class="flex-1 min-w-0 text-sm text-gray-700 truncate">批量处理 50 张图片</span>
+          <button
+            onclick="event.stopPropagation(); deleteConv(this)"
+            class="p-1 text-gray-400 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 空态（无会话时显示，默认隐藏） -->
+      <div
+        id="conv-empty"
+        class="hidden flex-1 flex-col items-center justify-center text-center px-6 py-8"
+      >
+        <div
+          class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3"
+        >
+          <i data-lucide="message-square" class="w-5 h-5 text-gray-300"></i>
+        </div>
+        <p class="text-xs text-gray-400">还没有会话</p>
+        <p class="text-[11px] text-gray-300 mt-1">点击上方「新对话」开始</p>
+      </div>
+    </aside>
+
+    <!-- ============================================================
+        中：对话区（标题栏 + 消息 + 生成状态条 + 输入区）
+    ============================================================ -->
+    <main class="flex-1 flex flex-col min-w-0 relative bg-white">
+      <!-- 移动端顶部栏 -->
+      <div
+        class="mobile-topbar lg:hidden h-12 flex items-center px-4 border-b border-gray-200 bg-white flex-shrink-0"
+      >
+        <button
+          onclick="openSidebar()"
+          class="p-2 -ml-2 hover:bg-gray-100 rounded-md"
+        >
+          <i data-lucide="menu" class="w-4 h-4 text-gray-600"></i>
+        </button>
+        <span class="ml-2 font-semibold text-sm text-gray-900">任务详情</span>
+      </div>
+
+      <!-- ===== 顶部标题栏（回退 + 当前会话标题 + 状态点） ===== -->
+      <div
+        class="h-14 flex items-center justify-between px-6 bg-white flex-shrink-0"
+      >
+        <div class="flex items-center gap-3 min-w-0">
+          <button
+            id="sidebar-toggle"
+            onclick="toggleSidebarCollapse()"
+            class="hidden p-2 -ml-2 hover:bg-gray-100 rounded-md flex-shrink-0"
+            title="展开侧边栏"
+          >
+            <i data-lucide="panel-left-open" class="w-4 h-4 text-gray-600"></i>
+          </button>
+          <h1 class="text-base font-semibold text-gray-900 truncate">
+            帮我分析季度销售 CSV 数据
+          </h1>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <span id="token-meta" class="text-[13px] font-medium text-gray-600 cursor-help" title="12.4K tokens · 缓存命中率 45%">12.4K · 45%</span>
+          <button
+            id="file-tree-toggle"
+            onclick="toggleFileTreeCollapse()"
+            class="hidden p-2 -mr-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            title="展开文件树"
+          >
+            <i data-lucide="panel-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 可滚动消息区 -->
+      <div id="chat-scroll-area" class="flex-1 overflow-y-auto">
+        <div class="max-w-3xl mx-auto px-4 py-6">
+          <div id="message-list">
+            <!-- ==================== 用户消息（带附件 chip） ==================== -->
+            <div class="flex justify-end mb-6 message-enter">
+              <div
+                class="max-w-[80%] bg-gray-100 rounded-2xl rounded-tr-md px-4 py-3"
+              >
+                <div class="flex flex-wrap gap-1.5 mb-2">
+                  <span class="file-chip">
+                    <i class="fa-solid fa-file-csv text-xs text-green-600"></i>
+                    data.csv
+                    <i data-lucide="x" class="w-3 h-3 text-gray-400"></i>
+                  </span>
+                </div>
+                <p class="text-sm text-gray-800">
+                  帮我分析这个 CSV 文件，看看季度销售趋势，并生成一份可视化报告。
+                </p>
+              </div>
+            </div>
+
+            <!-- ==================== AI 回复 ==================== -->
+            <div class="mb-6 message-enter">
+              <div>
+                <!-- 思考卡片（默认展开） -->
+                <div class="fold-card open mb-2">
+                  <button
+                    onclick="toggleFold(this)"
+                    class="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i>
+                    <span>深度思考</span>
+                    <i
+                      data-lucide="chevron-right"
+                      class="w-3 h-3 fold-arrow"
+                    ></i>
+                  </button>
+                  <div class="fold-body bg-gray-50 rounded-lg px-4 py-3 mt-2">
+                    <p class="text-xs text-gray-500 leading-relaxed">
+                      用户上传了一个 CSV 文件，希望分析季度销售趋势并生成可视化报告。我应该先读取文件，了解字段结构和数据规模，然后选择合适的分组聚合方式，最后用图表库生成趋势图并输出结论。
+                    </p>
+                  </div>
+                </div>
+
+                <!-- 文本段 -->
+                <div class="md-body">
+                  <p>我先读取文件，看一下数据结构。</p>
+                </div>
+
+                <!-- 工具卡片（已完成，默认展开） -->
+                <div class="fold-card open mt-3">
+                  <button
+                    onclick="toggleFold(this)"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-colors text-left"
+                  >
+                    <span class="file-icon-sm file-type-code">
+                      <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                    </span>
+                    <span class="text-sm font-medium text-gray-800 flex-1 truncate"
+                      >读取文件</span
+                    >
+                    <span
+                      class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0"
+                      >read_file</span
+                    >
+                    <i
+                      data-lucide="chevron-right"
+                      class="w-3.5 h-3.5 text-gray-400 fold-arrow flex-shrink-0"
+                    ></i>
+                  </button>
+                  <div class="fold-body mt-1.5 border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="px-3 py-2 border-b border-gray-100">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输入</p>
+                      <pre class="text-xs text-gray-700 font-mono whitespace-pre-wrap m-0">{"path": "/mnt/user-data/uploads/data.csv", "start_line": 1, "end_line": 20}</pre>
+                    </div>
+                    <div class="px-3 py-2 bg-gray-50">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输出</p>
+                      <pre class="text-xs text-gray-600 font-mono whitespace-pre-wrap m-0">日期,区域,销售额,订单数
+2026-01-01,华东,120000,340
+2026-01-01,华南,98000,280
+…共 3200 行</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 文本段 -->
+                <div class="md-body mt-3">
+                  <p>
+                    数据共 3200 行，字段包括日期、区域、销售额、订单数。我来按季度做聚合，并委派一个子代理处理数据清洗。
+                  </p>
+                </div>
+
+                <!-- 文本段 -->
+                <div class="md-body mt-3">
+                  <p>我先用 bash 执行聚合脚本，并核对目录与文件内容。</p>
+                </div>
+
+                <!-- 工具卡片：执行 Bash -->
+                <div class="fold-card open mt-3">
+                  <button
+                    onclick="toggleFold(this)"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-colors text-left"
+                  >
+                    <span class="file-icon-sm file-type-code">
+                      <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+                    </span>
+                    <span class="text-sm font-medium text-gray-800 flex-1 truncate"
+                      >执行 Bash</span
+                    >
+                    <span
+                      class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0"
+                      >bash</span
+                    >
+                    <i
+                      data-lucide="chevron-right"
+                      class="w-3.5 h-3.5 text-gray-400 fold-arrow flex-shrink-0"
+                    ></i>
+                  </button>
+                  <div class="fold-body mt-1.5 border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="px-3 py-2 border-b border-gray-100">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输入</p>
+                      <pre class="text-xs text-gray-700 font-mono whitespace-pre-wrap m-0">{"command": "python /mnt/user-data/workspace/aggregate.py", "description": "按季度聚合销售数据"}</pre>
+                    </div>
+                    <div class="px-3 py-2 bg-gray-50">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输出</p>
+                      <pre class="text-xs text-gray-600 font-mono whitespace-pre-wrap m-0">季度聚合完成，已生成 quarterly_summary.csv（4 个季度分组）。</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 工具卡片：列出目录 -->
+                <div class="fold-card open mt-3">
+                  <button
+                    onclick="toggleFold(this)"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-colors text-left"
+                  >
+                    <span class="file-icon-sm file-type-code">
+                      <i data-lucide="folder" class="w-3.5 h-3.5"></i>
+                    </span>
+                    <span class="text-sm font-medium text-gray-800 flex-1 truncate"
+                      >列出目录</span
+                    >
+                    <span
+                      class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0"
+                      >ls</span
+                    >
+                    <i
+                      data-lucide="chevron-right"
+                      class="w-3.5 h-3.5 text-gray-400 fold-arrow flex-shrink-0"
+                    ></i>
+                  </button>
+                  <div class="fold-body mt-1.5 border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="px-3 py-2 border-b border-gray-100">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输入</p>
+                      <pre class="text-xs text-gray-700 font-mono whitespace-pre-wrap m-0">{"path": "/mnt/user-data/uploads", "description": "查看上传文件"}</pre>
+                    </div>
+                    <div class="px-3 py-2 bg-gray-50">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输出</p>
+                      <pre class="text-xs text-gray-600 font-mono whitespace-pre-wrap m-0">data.csv
+report_template.docx
+logo.png</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 工具卡片：匹配文件 -->
+                <div class="fold-card open mt-3">
+                  <button
+                    onclick="toggleFold(this)"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-colors text-left"
+                  >
+                    <span class="file-icon-sm file-type-code">
+                      <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                    </span>
+                    <span class="text-sm font-medium text-gray-800 flex-1 truncate"
+                      >匹配文件</span
+                    >
+                    <span
+                      class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0"
+                      >glob</span
+                    >
+                    <i
+                      data-lucide="chevron-right"
+                      class="w-3.5 h-3.5 text-gray-400 fold-arrow flex-shrink-0"
+                    ></i>
+                  </button>
+                  <div class="fold-body mt-1.5 border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="px-3 py-2 border-b border-gray-100">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输入</p>
+                      <pre class="text-xs text-gray-700 font-mono whitespace-pre-wrap m-0">{"pattern": "**/*.csv", "path": "/mnt/user-data", "description": "查找所有 CSV 文件"}</pre>
+                    </div>
+                    <div class="px-3 py-2 bg-gray-50">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输出</p>
+                      <pre class="text-xs text-gray-600 font-mono whitespace-pre-wrap m-0">Found 2 paths under /mnt/user-data
+1. /mnt/user-data/uploads/data.csv
+2. /mnt/user-data/workspace/quarterly_summary.csv</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 工具卡片：搜索文本 -->
+                <div class="fold-card open mt-3">
+                  <button
+                    onclick="toggleFold(this)"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-colors text-left"
+                  >
+                    <span class="file-icon-sm file-type-code">
+                      <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                    </span>
+                    <span class="text-sm font-medium text-gray-800 flex-1 truncate"
+                      >搜索文本</span
+                    >
+                    <span
+                      class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0"
+                      >grep</span
+                    >
+                    <i
+                      data-lucide="chevron-right"
+                      class="w-3.5 h-3.5 text-gray-400 fold-arrow flex-shrink-0"
+                    ></i>
+                  </button>
+                  <div class="fold-body mt-1.5 border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="px-3 py-2 border-b border-gray-100">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输入</p>
+                      <pre class="text-xs text-gray-700 font-mono whitespace-pre-wrap m-0">{"pattern": "销售额", "path": "/mnt/user-data/workspace", "glob": "**/*.py", "description": "查找聚合逻辑中的字段引用"}</pre>
+                    </div>
+                    <div class="px-3 py-2 bg-gray-50">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输出</p>
+                      <pre class="text-xs text-gray-600 font-mono whitespace-pre-wrap m-0">Found 3 matches under /mnt/user-data/workspace
+aggregate.py:12: df["销售额"] = df["销售额"].astype(float)
+aggregate.py:20: q = df.groupby("季度")["销售额"].sum()
+aggregate.py:31: print(q.to_string())</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 文本段 -->
+                <div class="md-body mt-3">
+                  <p>聚合完成后，我写入报告并调整图表配置。</p>
+                </div>
+
+                <!-- 工具卡片：写文件 -->
+                <div class="fold-card open mt-3">
+                  <button
+                    onclick="toggleFold(this)"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-colors text-left"
+                  >
+                    <span class="file-icon-sm file-type-code">
+                      <i data-lucide="file-plus" class="w-3.5 h-3.5"></i>
+                    </span>
+                    <span class="text-sm font-medium text-gray-800 flex-1 truncate"
+                      >写文件</span
+                    >
+                    <span
+                      class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0"
+                      >write_file</span
+                    >
+                    <i
+                      data-lucide="chevron-right"
+                      class="w-3.5 h-3.5 text-gray-400 fold-arrow flex-shrink-0"
+                    ></i>
+                  </button>
+                  <div class="fold-body mt-1.5 border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="px-3 py-2 border-b border-gray-100">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输入</p>
+                      <pre class="text-xs text-gray-700 font-mono whitespace-pre-wrap m-0">{"path": "/mnt/user-data/outputs/季度销售分析报告.md", "content": "# 季度销售分析报告\n\n...（正文内容）"}</pre>
+                    </div>
+                    <div class="px-3 py-2 bg-gray-50">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输出</p>
+                      <pre class="text-xs text-gray-600 font-mono whitespace-pre-wrap m-0">OK</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 工具卡片：替换文本 -->
+                <div class="fold-card open mt-3">
+                  <button
+                    onclick="toggleFold(this)"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-colors text-left"
+                  >
+                    <span class="file-icon-sm file-type-code">
+                      <i data-lucide="replace" class="w-3.5 h-3.5"></i>
+                    </span>
+                    <span class="text-sm font-medium text-gray-800 flex-1 truncate"
+                      >替换文本</span
+                    >
+                    <span
+                      class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0"
+                      >str_replace</span
+                    >
+                    <i
+                      data-lucide="chevron-right"
+                      class="w-3.5 h-3.5 text-gray-400 fold-arrow flex-shrink-0"
+                    ></i>
+                  </button>
+                  <div class="fold-body mt-1.5 border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="px-3 py-2 border-b border-gray-100">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输入</p>
+                      <pre class="text-xs text-gray-700 font-mono whitespace-pre-wrap m-0">{"path": "/mnt/user-data/workspace/aggregate.py", "old_str": "kind='line'", "new_str": "kind='bar'", "replace_all": false}</pre>
+                    </div>
+                    <div class="px-3 py-2 bg-gray-50">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输出</p>
+                      <pre class="text-xs text-gray-600 font-mono whitespace-pre-wrap m-0">OK</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 文本段 -->
+                <div class="md-body mt-3">
+                  <p>同时，我参考可视化技能、联网查证最新数据，并理解上传的图片。</p>
+                </div>
+
+                <!-- 工具卡片：读取技能 -->
+                <div class="fold-card open mt-3">
+                  <button
+                    onclick="toggleFold(this)"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-colors text-left"
+                  >
+                    <span class="file-icon-sm file-type-md">
+                      <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+                    </span>
+                    <span class="text-sm font-medium text-gray-800 flex-1 truncate"
+                      >读取技能</span
+                    >
+                    <span
+                      class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0"
+                      >read_skill</span
+                    >
+                    <i
+                      data-lucide="chevron-right"
+                      class="w-3.5 h-3.5 text-gray-400 fold-arrow flex-shrink-0"
+                    ></i>
+                  </button>
+                  <div class="fold-body mt-1.5 border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="px-3 py-2 border-b border-gray-100">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输入</p>
+                      <pre class="text-xs text-gray-700 font-mono whitespace-pre-wrap m-0">{"name": "chart-visualization"}</pre>
+                    </div>
+                    <div class="px-3 py-2 bg-gray-50">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输出</p>
+                      <pre class="text-xs text-gray-600 font-mono whitespace-pre-wrap m-0"># 图表可视化技能
+
+本技能提供 matplotlib / echarts 图表生成的最佳实践、配色规范与常用模板。</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 工具卡片：网页搜索 -->
+                <div class="fold-card open mt-3">
+                  <button
+                    onclick="toggleFold(this)"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-colors text-left"
+                  >
+                    <span class="file-icon-sm file-type-pptx">
+                      <i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                    </span>
+                    <span class="text-sm font-medium text-gray-800 flex-1 truncate"
+                      >网页搜索</span
+                    >
+                    <span
+                      class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0"
+                      >zhipu_web_search</span
+                    >
+                    <i
+                      data-lucide="chevron-right"
+                      class="w-3.5 h-3.5 text-gray-400 fold-arrow flex-shrink-0"
+                    ></i>
+                  </button>
+                  <div class="fold-body mt-1.5 border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="px-3 py-2 border-b border-gray-100">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输入</p>
+                      <pre class="text-xs text-gray-700 font-mono whitespace-pre-wrap m-0">{"query": "2026 Q2 中国零售行业销售趋势"}</pre>
+                    </div>
+                    <div class="px-3 py-2 bg-gray-50">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输出</p>
+                      <pre class="text-xs text-gray-600 font-mono whitespace-pre-wrap m-0">[1] 2026年二季度零售市场分析
+Date: 2026-07-15
+二季度零售总额同比增长 4.8%...
+Link: https://example.com/a
+
+[2] 中国零售业季度报告
+...</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 工具卡片：网页抓取 -->
+                <div class="fold-card open mt-3">
+                  <button
+                    onclick="toggleFold(this)"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-colors text-left"
+                  >
+                    <span class="file-icon-sm file-type-pptx">
+                      <i data-lucide="link" class="w-3.5 h-3.5"></i>
+                    </span>
+                    <span class="text-sm font-medium text-gray-800 flex-1 truncate"
+                      >网页抓取</span
+                    >
+                    <span
+                      class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0"
+                      >web_fetch</span
+                    >
+                    <i
+                      data-lucide="chevron-right"
+                      class="w-3.5 h-3.5 text-gray-400 fold-arrow flex-shrink-0"
+                    ></i>
+                  </button>
+                  <div class="fold-body mt-1.5 border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="px-3 py-2 border-b border-gray-100">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输入</p>
+                      <pre class="text-xs text-gray-700 font-mono whitespace-pre-wrap m-0">{"url": "https://example.com/report/q2-2026"}</pre>
+                    </div>
+                    <div class="px-3 py-2 bg-gray-50">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输出</p>
+                      <pre class="text-xs text-gray-600 font-mono whitespace-pre-wrap m-0"># 2026 Q2 零售报告
+
+（提取的网页正文 markdown，截取前 8000 字符）...</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 工具卡片：图像理解 -->
+                <div class="fold-card open mt-3">
+                  <button
+                    onclick="toggleFold(this)"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-colors text-left"
+                  >
+                    <span class="file-icon-sm file-type-img">
+                      <i data-lucide="image" class="w-3.5 h-3.5"></i>
+                    </span>
+                    <span class="text-sm font-medium text-gray-800 flex-1 truncate"
+                      >图像理解</span
+                    >
+                    <span
+                      class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0"
+                      >view_image</span
+                    >
+                    <i
+                      data-lucide="chevron-right"
+                      class="w-3.5 h-3.5 text-gray-400 fold-arrow flex-shrink-0"
+                    ></i>
+                  </button>
+                  <div class="fold-body mt-1.5 border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="px-3 py-2 border-b border-gray-100">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输入</p>
+                      <pre class="text-xs text-gray-700 font-mono whitespace-pre-wrap m-0">{"image_path": "/mnt/user-data/uploads/logo.png"}</pre>
+                    </div>
+                    <div class="px-3 py-2 bg-gray-50">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输出</p>
+                      <pre class="text-xs text-gray-600 font-mono whitespace-pre-wrap m-0">图片描述：这是一张公司 Logo，主体为蓝色六边形，中间有白色字母 "AIGC"。</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 子代理卡片（已完成，含耗时） -->
+                <div class="fold-card open mt-3">
+                  <button
+                    onclick="toggleFold(this)"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-[#cce5ff] bg-white hover:border-[#99ccff] transition-colors text-left"
+                  >
+                    <span class="file-icon-sm file-type-other">
+                      <i data-lucide="bot" class="w-3.5 h-3.5"></i>
+                    </span>
+                    <span class="text-sm font-medium text-gray-800 flex-1 truncate"
+                      >委派子代理：数据清洗与季度聚合</span
+                    >
+                    <span
+                      class="text-[10px] px-1.5 py-0.5 rounded bg-[#cce5ff] text-[#0072ff] flex-shrink-0"
+                      >task</span
+                    >
+                    <span class="text-[11px] text-gray-400 flex-shrink-0">耗时 2分10秒</span>
+                    <i
+                      data-lucide="chevron-right"
+                      class="w-3.5 h-3.5 text-gray-400 fold-arrow flex-shrink-0"
+                    ></i>
+                  </button>
+                  <div class="fold-body mt-1.5 border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="px-3 py-2 border-b border-gray-100">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输入</p>
+                      <pre class="text-xs text-gray-700 font-mono whitespace-pre-wrap m-0">{"description": "数据清洗与季度聚合", "subagent_type": "data-engineering"}</pre>
+                    </div>
+                    <div class="px-3 py-2 bg-gray-50">
+                      <p class="text-[11px] font-medium text-gray-400 mb-1">输出</p>
+                      <pre class="text-xs text-gray-600 font-mono whitespace-pre-wrap m-0">已按季度聚合完成，共 4 个季度分组，无缺失值。</pre>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- ==================== 错误态演示 ==================== -->
+            <div class="mb-6 message-enter">
+              <div>
+                <!-- 错误卡片 -->
+                <div class="border border-red-100 bg-red-50/60 rounded-lg overflow-hidden">
+                  <div class="flex items-start gap-2 px-3 py-2">
+                    <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-red-500 mt-0.5 flex-shrink-0"></i>
+                    <pre class="text-xs text-red-500 font-mono whitespace-pre-wrap m-0">内存不足，无法完成渲染。请减少数据量后重试。</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ==================== 取消态演示 ==================== -->
+            <div class="mb-6 message-enter">
+              <div>
+                <div class="md-body">
+                  <p>好的，我先停止当前任务。已生成的内容已保存。</p>
+                </div>
+                <div
+                  class="mt-2 flex items-center gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2"
+                >
+                  <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
+                  生成被中断
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 生成状态条（常驻，run_start→run_end 期间显示） ===== -->
+      <div
+        id="gen-status"
+        class="gen-status bg-white"
+      >
+        <div class="max-w-3xl mx-auto px-4 flex items-center gap-2 pt-2 pb-0">
+          <span class="gen-spinner"></span>
+          <span id="gen-status-label">执行工具中…</span>
+        </div>
+      </div>
+
+      <!-- ===== 底部输入区 ===== -->
+      <div class="bg-white flex-shrink-0">
+        <div class="max-w-3xl mx-auto px-4 pt-1 pb-4">
+          <div
+            class="input-card rounded-2xl border border-gray-200 bg-white transition-all"
+          >
+            <!-- 附件 chips 区 -->
+            <div id="attach-chips" class="hidden flex flex-wrap gap-1.5 px-4 pt-3"></div>
+
+            <textarea
+              id="chat-input"
+              rows="3"
+              placeholder="输入消息，或粘贴 /mnt/user-data/... 文件路径"
+              class="w-full px-5 pt-4 pb-2 text-base text-gray-800 placeholder-gray-400 outline-none resize-none bg-transparent"
+              oninput="onInputChange(this)"
+              onkeydown="handleEnter(event)"
+            ></textarea>
+
+            <div class="flex items-center justify-between px-3 pb-2">
+              <!-- 左侧：模型下拉 + 思考开关 + 附件上传 -->
+              <div class="flex items-center gap-1.5">
+                <!-- 模型下拉 -->
+                <div class="relative">
+                  <button
+                    onclick="toggleModelMenu(event)"
+                    class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <span class="model-label">DeepSeek-V4-Flash</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 text-gray-400"></i>
+                  </button>
+                  <div
+                    class="popup-menu hidden bottom-full left-0 mb-2 w-60"
+                  >
+                    <p class="px-3 py-2 text-xs text-gray-400 border-b border-gray-100">
+                      选择模型
+                    </p>
+                    <div class="py-1 model-list"></div>
+                  </div>
+                </div>
+
+                <!-- 深度思考开关 -->
+                <button
+                  onclick="toggleThinking(this)"
+                  class="think-toggle flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  title="深度思考"
+                >
+                  <span class="toggle-track on"></span>
+                  <span>深度思考</span>
+                  <i data-lucide="lock" class="think-lock hidden w-3 h-3 text-gray-400"></i>
+                </button>
+
+                <!-- 附件上传 -->
+                <button
+                  onclick="addAttachment()"
+                  class="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="上传附件"
+                >
+                  <i data-lucide="paperclip" class="w-4 h-4"></i>
+                </button>
+              </div>
+
+              <!-- 右侧：发送 / 停止按钮 -->
+              <button
+                id="send-btn"
+                onclick="stopStreaming()"
+                class="send-btn w-9 h-9 bg-[#0072ff] rounded-full flex items-center justify-center text-white hover:bg-[#0056cc] transition-colors"
+                disabled
+              >
+                <i data-lucide="arrow-up" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ============================================================
+        右：文件树面板（outputs / workspace / uploads 三根目录）
+    ============================================================ -->
+    <aside
+      id="file-panel"
+      class="hidden xl:flex w-72 file-tree-root flex-col flex-shrink-0"
+    >
+      <div
+        class="h-14 flex items-center justify-between px-5 border-b border-gray-200 bg-white flex-shrink-0"
+      >
+        <div class="flex items-center gap-2">
+          <i data-lucide="folder-open" class="w-4 h-4 text-gray-600"></i>
+          <span class="text-sm font-semibold text-gray-900">文件</span>
+        </div>
+        <div class="flex items-center gap-0.5">
+          <button
+            id="file-tree-fullscreen-btn"
+            onclick="toggleFileTreeFullscreen()"
+            class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            title="全屏"
+          >
+            <i data-lucide="maximize-2" class="w-4 h-4"></i>
+          </button>
+          <button
+            onclick="toggleFileTreeCollapse()"
+            class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            title="折叠"
+          >
+            <i data-lucide="chevrons-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-3 space-y-1" id="file-tree">
+        <!-- outputs 根目录 -->
+        <div class="tree-node open">
+          <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer" onclick="toggleTreeNode(this)">
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-gray-400 tree-caret"></i>
+            <i data-lucide="folder" class="w-4 h-4 text-gray-500"></i>
+            <span class="text-sm text-gray-600 font-medium">输出文件</span>
+          </div>
+          <div class="tree-children pl-5 space-y-0.5">
+            <div class="tree-node">
+              <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer group" onclick="openPreview('pptx')">
+                <span class="file-icon-sm file-type-pptx"><i class="fa-solid fa-file-powerpoint text-sm text-orange-600"></i></span>
+                <span class="text-xs text-gray-700 truncate">季度销售趋势报告.pptx</span>
+                <button class="p-1 text-gray-300 hover:text-[#0072ff] rounded opacity-0 group-hover:opacity-100 ml-auto" onclick="event.stopPropagation(); toast('下载：季度销售趋势报告.pptx')"><i data-lucide="download" class="w-3 h-3"></i></button>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer group" onclick="openPreview('pdf')">
+                <span class="file-icon-sm file-type-pdf"><i class="fa-solid fa-file-pdf text-sm text-red-600"></i></span>
+                <span class="text-xs text-gray-700 truncate">季度销售分析报告.pdf</span>
+                <button class="p-1 text-gray-300 hover:text-[#0072ff] rounded opacity-0 group-hover:opacity-100 ml-auto" onclick="event.stopPropagation(); toast('下载：季度销售分析报告.pdf')"><i data-lucide="download" class="w-3 h-3"></i></button>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer group" onclick="openPreview('xlsx')">
+                <span class="file-icon-sm file-type-xlsx"><i class="fa-solid fa-file-excel text-sm text-green-600"></i></span>
+                <span class="text-xs text-gray-700 truncate">销售明细.xlsx</span>
+                <button class="p-1 text-gray-300 hover:text-[#0072ff] rounded opacity-0 group-hover:opacity-100 ml-auto" onclick="event.stopPropagation(); toast('下载：销售明细.xlsx')"><i data-lucide="download" class="w-3 h-3"></i></button>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer group" onclick="openPreview('docx')">
+                <span class="file-icon-sm file-type-docx"><i class="fa-solid fa-file-word text-sm text-blue-600"></i></span>
+                <span class="text-xs text-gray-700 truncate">会议纪要.docx</span>
+                <button class="p-1 text-gray-300 hover:text-[#0072ff] rounded opacity-0 group-hover:opacity-100 ml-auto" onclick="event.stopPropagation(); toast('下载：会议纪要.docx')"><i data-lucide="download" class="w-3 h-3"></i></button>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer group" onclick="openPreview('img')">
+                <span class="file-icon-sm file-type-img"><i class="fa-solid fa-file-image text-sm text-purple-500"></i></span>
+                <span class="text-xs text-gray-700 truncate">词云分布图.png</span>
+                <button class="p-1 text-gray-300 hover:text-[#0072ff] rounded opacity-0 group-hover:opacity-100 ml-auto" onclick="event.stopPropagation(); toast('下载：词云分布图.png')"><i data-lucide="download" class="w-3 h-3"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- workspace 根目录 -->
+        <div class="tree-node open">
+          <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer" onclick="toggleTreeNode(this)">
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-gray-400 tree-caret"></i>
+            <i data-lucide="folder" class="w-4 h-4 text-gray-500"></i>
+            <span class="text-sm text-gray-600 font-medium">工作区</span>
+          </div>
+          <div class="tree-children pl-5 space-y-0.5">
+            <div class="tree-node">
+              <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer group" onclick="openPreview('code')">
+                <span class="file-icon-sm file-type-code"><i class="fa-solid fa-file-code text-sm text-gray-500"></i></span>
+                <span class="text-xs text-gray-700 truncate">analysis_script.py</span>
+                <button class="p-1 text-gray-300 hover:text-[#0072ff] rounded opacity-0 group-hover:opacity-100 ml-auto" onclick="event.stopPropagation(); toast('下载：analysis_script.py')"><i data-lucide="download" class="w-3 h-3"></i></button>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer group" onclick="openPreview('md')">
+                <span class="file-icon-sm file-type-md"><i class="fa-solid fa-file-lines text-sm text-gray-500"></i></span>
+                <span class="text-xs text-gray-700 truncate">notes.md</span>
+                <button class="p-1 text-gray-300 hover:text-[#0072ff] rounded opacity-0 group-hover:opacity-100 ml-auto" onclick="event.stopPropagation(); toast('下载：notes.md')"><i data-lucide="download" class="w-3 h-3"></i></button>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer group" onclick="openPreview('json')">
+                <span class="file-icon-sm file-type-code"><i class="fa-solid fa-file-code text-sm text-amber-500"></i></span>
+                <span class="text-xs text-gray-700 truncate">config.json</span>
+                <button class="p-1 text-gray-300 hover:text-[#0072ff] rounded opacity-0 group-hover:opacity-100 ml-auto" onclick="event.stopPropagation(); toast('下载：config.json')"><i data-lucide="download" class="w-3 h-3"></i></button>
+              </div>
+            </div>
+            <!-- 嵌套目录 -->
+            <div class="tree-node open">
+              <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer" onclick="toggleTreeNode(this)">
+                <i data-lucide="chevron-right" class="w-3 h-3 text-gray-400 tree-caret"></i>
+                <i data-lucide="folder" class="w-3.5 h-3.5 text-gray-500"></i>
+                <span class="text-xs text-gray-600">data</span>
+              </div>
+              <div class="tree-children pl-4 space-y-0.5">
+                <div class="tree-node">
+                  <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer group" onclick="openPreview('csv')">
+                    <span class="file-icon-sm file-type-csv"><i class="fa-solid fa-file-csv text-sm text-green-600"></i></span>
+                    <span class="text-xs text-gray-700 truncate">cleaned.csv</span>
+                    <button class="p-1 text-gray-300 hover:text-[#0072ff] rounded opacity-0 group-hover:opacity-100 ml-auto" onclick="event.stopPropagation(); toast('下载：cleaned.csv')"><i data-lucide="download" class="w-3 h-3"></i></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- uploads 根目录 -->
+        <div class="tree-node open">
+          <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer" onclick="toggleTreeNode(this)">
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-gray-400 tree-caret"></i>
+            <i data-lucide="folder" class="w-4 h-4 text-gray-500"></i>
+            <span class="text-sm text-gray-600 font-medium">上传文件</span>
+          </div>
+          <div class="tree-children pl-5 space-y-0.5">
+            <div class="tree-node">
+              <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer group" onclick="openPreview('csv')">
+                <span class="file-icon-sm file-type-csv"><i class="fa-solid fa-file-csv text-sm text-green-600"></i></span>
+                <span class="text-xs text-gray-700 truncate">data.csv</span>
+                <button class="p-1 text-gray-300 hover:text-[#0072ff] rounded opacity-0 group-hover:opacity-100 ml-auto" onclick="event.stopPropagation(); toast('下载：data.csv')"><i data-lucide="download" class="w-3 h-3"></i></button>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer group" onclick="openPreview('pdf')">
+                <span class="file-icon-sm file-type-pdf"><i class="fa-solid fa-file-pdf text-sm text-red-600"></i></span>
+                <span class="text-xs text-gray-700 truncate">合同扫描件.pdf</span>
+                <button class="p-1 text-gray-300 hover:text-[#0072ff] rounded opacity-0 group-hover:opacity-100 ml-auto" onclick="event.stopPropagation(); toast('下载：合同扫描件.pdf')"><i data-lucide="download" class="w-3 h-3"></i></button>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-row flex items-center gap-1.5 px-2 py-1.5 cursor-pointer group" onclick="openPreview('docx')">
+                <span class="file-icon-sm file-type-docx"><i class="fa-solid fa-file-word text-sm text-blue-600"></i></span>
+                <span class="text-xs text-gray-700 truncate">产品说明书.docx</span>
+                <button class="p-1 text-gray-300 hover:text-[#0072ff] rounded opacity-0 group-hover:opacity-100 ml-auto" onclick="event.stopPropagation(); toast('下载：产品说明书.docx')"><i data-lucide="download" class="w-3 h-3"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 文件树空态 -->
+      <div
+        id="file-tree-empty"
+        class="hidden flex-1 flex flex-col items-center justify-center text-center px-6"
+      >
+        <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+          <i data-lucide="folder" class="w-5 h-5 text-gray-300"></i>
+        </div>
+        <p class="text-xs text-gray-400">暂无文件</p>
+        <p class="text-[11px] text-gray-300 mt-1">该会话未生成任何文件</p>
+      </div>
+    </aside>
+
+    <!-- ============================================================
+        文件预览弹窗
+    ============================================================ -->
+    <div id="preview-modal" class="preview-modal hidden" onclick="closePreview(event)">
+      <div class="preview-modal-content" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between p-4 border-b border-gray-100">
+          <div class="flex items-center gap-3 min-w-0">
+            <div id="preview-modal-icon" class="file-icon-sm file-type-other flex-shrink-0"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></div>
+            <div class="min-w-0">
+              <h3 id="preview-modal-title" class="text-sm font-semibold text-gray-900 truncate">预览</h3>
+              <p id="preview-modal-meta" class="text-xs text-gray-500 mt-0.5">文件大小 · 可预览</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              onclick="toast('下载文件')"
+              class="inline-flex items-center gap-1.5 text-gray-700 border border-gray-200 hover:bg-gray-50 text-sm px-4 py-2 rounded-lg"
+            >
+              <i data-lucide="download" class="w-4 h-4"></i>
+              下载
+            </button>
+            <button
+              onclick="closePreview()"
+              class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <i data-lucide="x" class="w-5 h-5 text-gray-500"></i>
+            </button>
+          </div>
+        </div>
+        <div id="preview-modal-body" class="preview-modal-body">
+          <!-- 动态内容 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 轻提示 -->
+    <div
+      id="toast"
+      class="fixed top-4 left-1/2 -translate-x-1/2 z-[200] hidden px-4 py-2 rounded-lg bg-gray-900 text-white text-sm shadow-lg"
+    ></div>
+
+    <script>
+      /* ============ 模型列表（统一数据源） ============ */
+      const MODELS = [
+        { name: 'DeepSeek-V4-Flash', locked: false },
+        { name: 'DeepSeek-V4-Pro', locked: false },
+        { name: 'Kimi-K27', locked: true },
+        { name: 'Glm-5.2', locked: false },
+        { name: 'Minimax-M3', locked: false },
+      ];
+      function renderModelMenu(menu) {
+        const list = menu.querySelector('.model-list');
+        if (!list) return;
+        list.innerHTML = MODELS.map((m) => {
+          return (
+            '<button onclick="pickModel(event, \'' + m.name + '\')" class="w-full flex items-center px-3 py-2 rounded-md hover:bg-gray-50">' +
+            '<span class="text-sm text-gray-700">' + m.name + '</span>' +
+            '</button>'
+          );
+        }).join('');
+      }
+      document.querySelectorAll('.popup-menu').forEach(renderModelMenu);
+      lucide.createIcons();
+
+      /* ============ 侧栏（移动端） ============ */
+      function openSidebar() {
+        document.body.classList.remove('sidebar-collapsed');
+        document.getElementById('sidebar').classList.remove('-translate-x-full');
+        document.getElementById('sidebar-overlay').classList.remove('hidden');
+      }
+      function toggleSidebarCollapse() {
+        document.body.classList.toggle('sidebar-collapsed');
+      }
+      function closeSidebar() {
+        document.getElementById('sidebar').classList.add('-translate-x-full');
+        document.getElementById('sidebar-overlay').classList.add('hidden');
+      }
+
+      /* ============ 会话列表 ============ */
+      function setActiveConv(el) {
+        document
+          .querySelectorAll('.conv-item')
+          .forEach((i) => i.classList.remove('bg-gray-100'));
+        el.classList.add('bg-gray-100');
+        // 更新顶部标题栏为所选会话标题
+        const title = el.querySelector('.truncate');
+        if (title) {
+          document.querySelector('h1').textContent = title.textContent.trim();
+        }
+        // 更新 token / 缓存命中率 meta（默认短文案，hover 显示完整）
+        const meta = document.getElementById('token-meta');
+        const token = el.getAttribute('data-token');
+        const cache = el.getAttribute('data-cache');
+        if (meta && token) {
+          const full = cache ? `${token} tokens · 缓存命中率 ${cache}` : `${token} tokens`;
+          const short = cache ? `${token} · ${cache}` : token;
+          meta.textContent = short;
+          meta.title = full;
+        }
+        // 切换文件树：无文件的会话显示空态
+        const hasFiles = el.getAttribute('data-has-files') !== 'false';
+        document.getElementById('file-tree').classList.toggle('hidden', !hasFiles);
+        document.getElementById('file-tree-empty').classList.toggle('hidden', hasFiles);
+      }
+      function deleteConv(btn) {
+        const item = btn.closest('.conv-item');
+        item.style.opacity = '0';
+        item.style.transform = 'scale(0.96)';
+        setTimeout(() => item.remove(), 180);
+      }
+
+      /* ============ 折叠（思考卡 / 工具卡 / 子代理卡） ============ */
+      function toggleFold(btn) {
+        btn.closest('.fold-card').classList.toggle('open');
+      }
+
+      /* ============ 文件树展开/折叠 ============ */
+      function toggleTreeNode(row) {
+        row.parentElement.classList.toggle('open');
+      }
+
+      /* ============ 文件树：全屏 / 折叠 ============ */
+      function setFileTreeFullscreenIcon() {
+        const full = document.body.classList.contains('file-tree-fullscreen');
+        const btn = document.getElementById('file-tree-fullscreen-btn');
+        if (!btn) return;
+        const icon = btn.querySelector('i');
+        icon.setAttribute('data-lucide', full ? 'minimize-2' : 'maximize-2');
+        btn.title = full ? '退出全屏' : '全屏';
+        lucide.createIcons();
+      }
+      function toggleFileTreeFullscreen() {
+        document.body.classList.toggle('file-tree-fullscreen');
+        document.body.classList.remove('file-tree-collapsed');
+        setFileTreeFullscreenIcon();
+      }
+      function toggleFileTreeCollapse() {
+        document.body.classList.toggle('file-tree-collapsed');
+        document.body.classList.remove('file-tree-fullscreen');
+        setFileTreeFullscreenIcon();
+      }
+
+      /* ============ 模型下拉 ============ */
+      function toggleModelMenu(e) {
+        e.stopPropagation();
+        e.currentTarget.parentElement
+          .querySelector('.popup-menu')
+          .classList.toggle('hidden');
+      }
+      function pickModel(e, name) {
+        const wrapper = e.currentTarget.closest('.relative');
+        wrapper.querySelector('.model-label').textContent = name;
+        const model = MODELS.find((m) => m.name === name);
+        const toggle = wrapper
+          .closest('.input-card')
+          .querySelector('.think-toggle');
+        const track = toggle.querySelector('.toggle-track');
+        const lock = toggle.querySelector('.think-lock');
+        if (model && model.locked) {
+          toggle.classList.add('think-locked');
+          track.classList.add('on');
+          lock.classList.remove('hidden');
+          toggle.title = '深度思考（锁定）';
+        } else {
+          toggle.classList.remove('think-locked');
+          lock.classList.add('hidden');
+          toggle.title = '深度思考';
+        }
+        wrapper.querySelector('.popup-menu').classList.add('hidden');
+      }
+      document.addEventListener('click', (e) => {
+        if (
+          !e.target.closest('.popup-menu') &&
+          !e.target.closest('[onclick^="toggleModelMenu"]')
+        ) {
+          document
+            .querySelectorAll('.popup-menu')
+            .forEach((m) => m.classList.add('hidden'));
+        }
+      });
+
+      /* ============ 深度思考开关 ============ */
+      function toggleThinking(btn) {
+        if (btn.classList.contains('think-locked')) return;
+        btn.querySelector('.toggle-track').classList.toggle('on');
+      }
+
+      /* ============ 附件上传（演示） ============ */
+      function addAttachment() {
+        const chips = document.getElementById('attach-chips');
+        const card = chips.closest('.input-card');
+        chips.classList.remove('hidden');
+
+        const chip = document.createElement('span');
+        chip.className = 'file-chip';
+
+        const label = document.createElement('span');
+        label.className = 'inline-flex items-center gap-1.5';
+        label.innerHTML = '<i class="fa-solid fa-file-word text-xs text-blue-600"></i> 报告模板.docx';
+
+        const clear = document.createElement('button');
+        clear.type = 'button';
+        clear.title = '移除附件';
+        clear.className =
+          'inline-flex items-center justify-center -mr-0.5 w-4 h-4 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors';
+        clear.innerHTML = '<i data-lucide="x" class="w-3 h-3"></i>';
+        clear.addEventListener('click', () => {
+          chip.remove();
+          if (!chips.children.length) chips.classList.add('hidden');
+          updateSendButton(card);
+        });
+
+        chip.appendChild(label);
+        chip.appendChild(clear);
+        chips.appendChild(chip);
+        lucide.createIcons();
+        updateSendButton(card);
+      }
+
+      /* ============ 发送 / 停止切换（演示） ============ */
+      let streaming = false;
+      function sendMessage() {
+        const input = document.getElementById('chat-input');
+        const card = input.closest('.input-card');
+        const text = input.value.trim();
+        const hasAttach = card.querySelectorAll('.file-chip').length > 0;
+        if (!text && !hasAttach) return;
+
+        const messageList = document.getElementById('message-list');
+        const userMsg = document.createElement('div');
+        userMsg.className = 'flex justify-end mb-6 message-enter';
+        userMsg.innerHTML = `<div class="max-w-[80%] bg-gray-100 rounded-2xl rounded-tr-md px-4 py-3"><p class="text-sm text-gray-800">${escapeHtml(text || '已上传附件')}</p></div>`;
+        messageList.appendChild(userMsg);
+
+        input.value = '';
+        autoResize(input);
+        scrollToBottom();
+
+        streaming = true;
+        const btn = document.getElementById('send-btn');
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="square" class="w-3.5 h-3.5 fill-current"></i>';
+        btn.classList.remove('bg-[#0072ff]', 'hover:bg-[#0056cc]');
+        btn.classList.add('bg-red-500', 'hover:bg-red-600');
+        lucide.createIcons();
+        setGenStatus('正在生成…');
+      }
+      function stopStreaming() {
+        if (!streaming) {
+          sendMessage();
+          return;
+        }
+        streaming = false;
+        const btn = document.getElementById('send-btn');
+        btn.innerHTML = '<i data-lucide="arrow-up" class="w-4 h-4"></i>';
+        btn.classList.add('bg-[#0072ff]', 'hover:bg-[#0056cc]');
+        btn.classList.remove('bg-red-500', 'hover:bg-red-600');
+        lucide.createIcons();
+        setGenStatus('已停止');
+        updateSendButton(document.getElementById('chat-input').closest('.input-card'));
+        const messageList = document.getElementById('message-list');
+        const note = document.createElement('div');
+        note.className = 'flex mb-6 message-enter';
+        note.innerHTML = `<div class="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2"><i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>生成被中断</div>`;
+        messageList.appendChild(note);
+        lucide.createIcons();
+        scrollToBottom();
+      }
+
+      function setGenStatus(text) {
+        document.getElementById('gen-status-label').textContent = text;
+      }
+
+      /* ============ 输入框 ============ */
+      function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+      }
+
+      /* ============ 发送按钮可用状态 ============ */
+      function onInputChange(textarea) {
+        autoResize(textarea);
+        updateSendButton(textarea.closest('.input-card'));
+      }
+      function updateSendButton(card) {
+        const input = card.querySelector('textarea');
+        const btn = card.querySelector('.send-btn');
+        if (!input || !btn) return;
+        // 生成中（停止态）按钮始终可用，用于停止
+        if (streaming) {
+          btn.disabled = false;
+          return;
+        }
+        const hasText = input.value.trim().length > 0;
+        const hasAttach = card.querySelectorAll('.file-chip').length > 0;
+        btn.disabled = !(hasText || hasAttach);
+      }
+      function updateAllSendButtons() {
+        document.querySelectorAll('.input-card').forEach(updateSendButton);
+      }
+
+      function handleEnter(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          stopStreaming();
+        }
+      }
+
+      /* ============ 文件预览 ============ */
+      const PREVIEWS = {
+        pptx: {
+          icon: 'monitor-play',
+          cls: 'file-type-pptx',
+          title: '季度销售趋势报告.pptx',
+          meta: '3.8 MB · application/vnd.ms-powerpoint',
+          html: `<div class="text-center py-16 text-gray-400"><i data-lucide="monitor-play" class="w-12 h-12 mx-auto mb-3"></i><p class="text-sm">PPT 预览（演示占位）</p><p class="text-xs mt-1">正式环境用 react-file-viewer 渲染</p></div>`,
+        },
+        pdf: {
+          icon: 'file-text',
+          cls: 'file-type-pdf',
+          title: '季度销售分析报告.pdf',
+          meta: '1.1 MB · application/pdf',
+          html: `<div class="text-center py-16 text-gray-400"><i data-lucide="file-text" class="w-12 h-12 mx-auto mb-3"></i><p class="text-sm">PDF 预览（演示占位）</p><p class="text-xs mt-1">正式环境用 react-file-viewer 渲染</p></div>`,
+        },
+        docx: {
+          icon: 'file-text',
+          cls: 'file-type-docx',
+          title: '会议纪要.docx',
+          meta: '240 KB · application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          html: `<div class="text-center py-16 text-gray-400"><i data-lucide="file-text" class="w-12 h-12 mx-auto mb-3"></i><p class="text-sm">Word 预览（演示占位）</p><p class="text-xs mt-1">正式环境用 react-file-viewer 渲染</p></div>`,
+        },
+        img: {
+          icon: 'image',
+          cls: 'file-type-img',
+          title: '词云分布图.png',
+          meta: '1.2 MB · image/png',
+          html: `<img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900&q=80" alt="图表预览" />`,
+        },
+        code: {
+          icon: 'file-code',
+          cls: 'file-type-code',
+          title: 'analysis_script.py',
+          meta: '2.1 KB · text/x-python',
+          html: `<pre>import pandas as pd
+
+df = pd.read_csv("/mnt/user-data/uploads/data.csv")
+quarterly = df.groupby("季度").agg({"销售额": "sum", "订单数": "sum"})
+quarterly.to_csv("/mnt/user-data/outputs/销售明细.xlsx")</pre>`,
+        },
+        csv: {
+          icon: 'file-text',
+          cls: 'file-type-csv',
+          title: 'data.csv',
+          meta: '156 KB · text/csv',
+          html: `<pre>日期,区域,销售额,订单数
+2026-01-01,华东,120000,340
+2026-01-01,华南,98000,280
+2026-02-01,华东,135000,390
+…共 3200 行</pre>`,
+        },
+        md: {
+          icon: 'file-text',
+          cls: 'file-type-md',
+          title: 'notes.md',
+          meta: '0.8 KB · text/markdown',
+          html: `<pre># 分析备注
+- 数据清洗已完成
+- 华东区 Q1 增长 18%</pre>`,
+        },
+        json: {
+          icon: 'file-json',
+          cls: 'file-type-code',
+          title: 'config.json',
+          meta: '0.5 KB · application/json',
+          html: `<pre>{
+  "model": "deepseek-v4-pro",
+  "thinking": true,
+  "output_format": "html"
+}</pre>`,
+        },
+        xlsx: {
+          icon: 'sheet',
+          cls: 'file-type-xlsx',
+          title: '销售明细.xlsx',
+          meta: '89 KB · application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          html: `<div class="text-center py-16 text-gray-400"><i data-lucide="sheet" class="w-12 h-12 mx-auto mb-3"></i><p class="text-sm">表格预览（演示占位）</p></div>`,
+        },
+      };
+      function openPreview(key) {
+        const p = PREVIEWS[key];
+        if (!p) return;
+        document.getElementById('preview-modal-title').textContent = p.title;
+        document.getElementById('preview-modal-meta').textContent = p.meta;
+        const iconEl = document.getElementById('preview-modal-icon');
+        iconEl.className = 'file-icon-sm ' + p.cls + ' flex-shrink-0';
+        iconEl.innerHTML = '<i data-lucide="' + p.icon + '" class="w-3.5 h-3.5"></i>';
+        document.getElementById('preview-modal-body').innerHTML = p.html;
+        document.getElementById('preview-modal').classList.remove('hidden');
+        lucide.createIcons();
+      }
+      function closePreview(event) {
+        if (event && event.target !== document.getElementById('preview-modal')) return;
+        document.getElementById('preview-modal').classList.add('hidden');
+      }
+
+      /* ============ 轻提示 ============ */
+      function toast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.remove('hidden');
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => t.classList.add('hidden'), 1800);
+      }
+
+      /* ============ 工具 ============ */
+      function scrollToBottom() {
+        const area = document.getElementById('chat-scroll-area');
+        area.scrollTop = area.scrollHeight;
+      }
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // 初始化发送按钮禁用状态
+      updateAllSendButtons();
+    </script>
+  </body>
+</html>

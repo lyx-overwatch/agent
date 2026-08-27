@@ -1,0 +1,25 @@
+# ── Build context exclusions for frontend Docker build ──
+# Files needed for the image (NOT excluded):
+#   - debug-agent.html
+#   - nginx.conf
+#   - Dockerfile
+
+# scripts/ 目录只是本地开发辅助，不需要进镜像
+scripts/
+
+# 编辑器/IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log

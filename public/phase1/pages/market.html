@@ -1,0 +1,1464 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>技能 - SkillHub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react@18/umd/react.production.min.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+    ></script>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/antd@4.24.16/dist/antd.min.css"
+    />
+    <script src="https://unpkg.com/antd@4.24.16/dist/antd.min.js"></script>
+    <style>
+      /* 会话状态：仅区分“生成中”，用脉冲圆点动效展示；已生成完毕不显示状态点 */
+      @keyframes convPulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.3; transform: scale(0.8); }
+      }
+      .conv-pulse-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #000;
+        flex-shrink: 0;
+        animation: convPulse 1.2s ease-in-out infinite;
+      }
+
+      /* 描述文字2行截断 */
+      .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      /* 模态弹窗动画 */
+      .modal-enter {
+        opacity: 0;
+        transform: scale(0.96);
+      }
+      .modal-enter-active {
+        opacity: 1;
+        transform: scale(1);
+        transition:
+          opacity 0.2s ease,
+          transform 0.2s ease;
+      }
+      .modal-exit {
+        opacity: 1;
+        transform: scale(1);
+      }
+      .modal-exit-active {
+        opacity: 0;
+        transform: scale(0.96);
+        transition:
+          opacity 0.15s ease,
+          transform 0.15s ease;
+      }
+
+      /* 侧边栏收起（桌面端）：只隐藏侧栏，中间区域变宽 */
+      @media (min-width: 1024px) {
+        body.sidebar-collapsed #sidebar {
+          display: none;
+        }
+        body.sidebar-collapsed #sidebar-toggle {
+          display: inline-flex;
+        }
+      }
+    </style>
+  </head>
+  <body class="flex h-screen bg-white">
+    <!-- 移动端遮罩 -->
+    <div
+      id="sidebar-overlay"
+      class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"
+      onclick="closeSidebar()"
+    ></div>
+
+    <!-- ========== 左侧 Sidebar ========== -->
+    <aside
+      id="sidebar"
+      class="fixed lg:static inset-y-0 left-0 z-50 w-60 bg-white border-r border-gray-200 flex flex-col -translate-x-full lg:translate-x-0 transition-transform duration-200"
+    >
+      <!-- Logo + 收起按钮 -->
+      <div
+        class="h-14 flex items-center justify-between px-4"
+      >
+        <a
+          href="/"
+          class="flex items-center hover:opacity-80 transition-opacity"
+        >
+          <span class="text-base font-bold text-gray-900">Agent</span>
+        </a>
+        <button
+          onclick="toggleSidebarCollapse()"
+          class="p-2 -mr-2 hover:bg-gray-100 rounded-md transition-colors"
+          title="收起侧边栏"
+        >
+          <i data-lucide="panel-left-close" class="w-4 h-4 text-gray-500"></i>
+        </button>
+      </div>
+
+      <!-- 导航菜单 -->
+      <nav class="px-3 py-3 space-y-1">
+        <a
+          href="chat.html"
+          class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50"
+        >
+          <i data-lucide="message-circle" class="w-4 h-4"></i>
+          工作台
+        </a>
+        <a
+          href="market.html"
+          class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium bg-gray-100 text-gray-900"
+        >
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          技能
+        </a>
+      </nav>
+
+      <!-- 会话列表 -->
+      <div class="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+        <div class="text-xs text-gray-400 mb-2 px-3">最近会话</div>
+
+        <a
+          href="task-detail.html"
+          class="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <span class="flex-1 min-w-0 text-sm text-gray-700 truncate">帮我分析季度销售 CSV 数据</span>
+          <button
+            onclick="event.preventDefault(); event.stopPropagation();"
+            class="p-1 text-gray-400 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </a>
+
+        <a
+          href="task-detail.html"
+          class="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <span class="flex-1 min-w-0 text-sm text-gray-700 truncate">生成小红书趋势报告</span>
+          <span class="conv-pulse-dot"></span>
+          <button
+            onclick="event.preventDefault(); event.stopPropagation();"
+            class="p-1 text-gray-400 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </a>
+
+        <a
+          href="task-detail.html"
+          class="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <span class="flex-1 min-w-0 text-sm text-gray-700 truncate">把会议纪要整理成周报</span>
+          <button
+            onclick="event.preventDefault(); event.stopPropagation();"
+            class="p-1 text-gray-400 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </a>
+
+        <a
+          href="task-detail.html"
+          class="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <span class="flex-1 min-w-0 text-sm text-gray-700 truncate">解析这份 PDF 合同</span>
+          <button
+            onclick="event.preventDefault(); event.stopPropagation();"
+            class="p-1 text-gray-400 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </a>
+
+        <a
+          href="task-detail.html"
+          class="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <span class="flex-1 min-w-0 text-sm text-gray-700 truncate">批量处理 50 张图片</span>
+          <button
+            onclick="event.preventDefault(); event.stopPropagation();"
+            class="p-1 text-gray-400 hover:text-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </a>
+      </div>
+    </aside>
+
+    <!-- ========== 主内容区 ========== -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <!-- ===== 顶部标题栏（展开侧栏按钮） ===== -->
+      <div
+        class="hidden lg:flex h-14 items-center justify-between px-6 bg-white flex-shrink-0"
+      >
+        <div class="flex items-center gap-3 min-w-0">
+          <button
+            id="sidebar-toggle"
+            onclick="toggleSidebarCollapse()"
+            class="hidden p-2 -ml-2 hover:bg-gray-100 rounded-md flex-shrink-0"
+            title="展开侧边栏"
+          >
+            <i data-lucide="panel-left-open" class="w-4 h-4 text-gray-600"></i>
+          </button>
+          <h1 class="text-base font-semibold text-gray-900 truncate">技能</h1>
+        </div>
+      </div>
+
+      <!-- 移动端顶部栏 -->
+      <div
+        class="mobile-topbar lg:hidden h-12 flex items-center px-4 border-b border-gray-200 bg-white"
+      >
+        <button
+          onclick="openSidebar()"
+          class="p-2 -ml-2 hover:bg-gray-100 rounded-md"
+        >
+          <i data-lucide="menu" class="w-4 h-4 text-gray-600"></i>
+        </button>
+        <span class="ml-2 font-semibold text-sm text-gray-900">技能</span>
+      </div>
+
+      <div class="flex-1 overflow-y-auto">
+        <div class="max-w-7xl mx-auto px-4 py-6">
+          <div id="panel-market">
+
+            <!-- 技能卡片网格：4列（参考截图4） -->
+            <div
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            >
+              <!-- 卡片 1：PPT生成 -->
+              <div
+                class="group p-5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer relative"
+                onclick="openSkillDetail('ppt-generation')"
+                data-skill-id="ppt-generation"
+              >
+                <h3 class="font-semibold text-sm text-gray-900">
+                  演示文稿生成器
+                </h3>
+                <p
+                  class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed"
+                >
+                  Generate professional multi-page HTML presentations (PPT).
+                  Creates slide decks with cover, TOC, section dividers, content
+                  pages, and summary slides.
+                </p>
+                <div class="flex items-center gap-2 mt-4">
+                  <div
+                    class="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600"
+                  >
+                    S
+                  </div>
+                  <span class="text-xs text-gray-400">SkillHub</span>
+                </div>
+              </div>
+
+              <!-- 卡片 2：图像创作 -->
+              <div
+                class="group p-5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer relative"
+                onclick="openSkillDetail('image-generation')"
+                data-skill-id="image-generation"
+              >
+                <h3 class="font-semibold text-sm text-gray-900">
+                  图像创作工具
+                </h3>
+                <p
+                  class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed"
+                >
+                  Curated image generation prompt collection covering 17 styles:
+                  hand-drawn, illustration, photorealistic, stylized, and more.
+                </p>
+                <div class="flex items-center gap-2 mt-4">
+                  <div
+                    class="w-5 h-5 rounded-full bg-pink-100 flex items-center justify-center text-[10px] font-bold text-pink-600"
+                  >
+                    查
+                  </div>
+                  <span class="text-xs text-gray-400">查女士</span>
+                </div>
+              </div>
+
+              <!-- 卡片 3：行业研究报告 -->
+              <div
+                class="group p-5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer relative"
+                onclick="openSkillDetail('industry-research')"
+                data-skill-id="industry-research"
+              >
+                <h3 class="font-semibold text-sm text-gray-900">
+                  行业研究报告
+                </h3>
+                <p
+                  class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed"
+                >
+                  Professional industry research report writer. Produces
+                  comprehensive, data-driven analysis with market sizing,
+                  competitive landscape, and trend forecasts.
+                </p>
+                <div class="flex items-center gap-2 mt-4">
+                  <div
+                    class="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center text-[10px] font-bold text-green-600"
+                  >
+                    M
+                  </div>
+                  <span class="text-xs text-gray-400">Matrix</span>
+                </div>
+              </div>
+
+              <!-- 卡片 4：小红书采集器 -->
+              <div
+                class="group p-5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer relative"
+                onclick="openSkillDetail('xiaohongshu-collector')"
+                data-skill-id="xiaohongshu-collector"
+              >
+                <h3 class="font-semibold text-sm text-gray-900">
+                  xiaohongshu-collector
+                </h3>
+                <p
+                  class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed"
+                >
+                  专业的小红书平台信息采集助手。当用户需要从小红书搜索和收集特定主题的笔记内容时使用此技能。
+                </p>
+                <div class="flex items-center gap-2 mt-4">
+                  <div
+                    class="w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center text-[10px] font-bold text-orange-600"
+                  >
+                    M
+                  </div>
+                  <span class="text-xs text-gray-400">MiniMax195811</span>
+                </div>
+              </div>
+
+              <!-- 卡片 5：stock-financial-analysis -->
+              <div
+                class="group p-5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer relative"
+                onclick="openSkillDetail('stock-financial-analysis')"
+                data-skill-id="stock-financial-analysis"
+              >
+                <h3 class="font-semibold text-sm text-gray-900">
+                  stock-financial-analysis
+                </h3>
+                <p
+                  class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed"
+                >
+                  专业的股票金融分析技能。当用户需要寻找短线交易机会、分析股票筹码分布、获取买入卖出信号、分析上证指数筹码变化时使用此技能。
+                </p>
+                <div class="flex items-center gap-2 mt-4">
+                  <div
+                    class="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600"
+                  >
+                    M
+                  </div>
+                  <span class="text-xs text-gray-400">MiniMax</span>
+                </div>
+              </div>
+
+              <!-- 卡片 6：故事视频生成器 -->
+              <div
+                class="group p-5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer relative"
+                onclick="openSkillDetail('story-video-generator')"
+                data-skill-id="story-video-generator"
+              >
+                <h3 class="font-semibold text-sm text-gray-900">
+                  故事视频生成器
+                </h3>
+                <p
+                  class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed"
+                >
+                  将文字故事自动转化为视频内容。支持多种视频风格、配音选择和字幕生成，适合短视频创作者使用。
+                </p>
+                <div class="flex items-center gap-2 mt-4">
+                  <div
+                    class="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center text-[10px] font-bold text-purple-600"
+                  >
+                    M
+                  </div>
+                  <span class="text-xs text-gray-400">MiniMax</span>
+                </div>
+              </div>
+
+              <!-- 卡片 7：知识消化助手 -->
+              <div
+                class="group p-5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer relative"
+                onclick="openSkillDetail('knowledge-digest')"
+                data-skill-id="knowledge-digest"
+              >
+                <h3 class="font-semibold text-sm text-gray-900">
+                  知识消化助手
+                </h3>
+                <p
+                  class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed"
+                >
+                  将长文、论文、报告自动提炼为结构化知识卡片。支持生成思维导图、摘要和关键概念提取。
+                </p>
+                <div class="flex items-center gap-2 mt-4">
+                  <div
+                    class="w-5 h-5 rounded-full bg-teal-100 flex items-center justify-center text-[10px] font-bold text-teal-600"
+                  >
+                    cc
+                  </div>
+                  <span class="text-xs text-gray-400">cc</span>
+                </div>
+              </div>
+
+              <!-- 卡片 8：需求转原型 -->
+              <div
+                class="group p-5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer relative"
+                onclick="openSkillDetail('req-to-prototype')"
+                data-skill-id="req-to-prototype"
+              >
+                <h3 class="font-semibold text-sm text-gray-900">
+                  需求转原型
+                </h3>
+                <p
+                  class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed"
+                >
+                  将自然语言需求描述转化为产品原型设计文档。输出包含用户故事、流程图和低保真线框图描述。
+                </p>
+                <div class="flex items-center gap-2 mt-4">
+                  <div
+                    class="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-600"
+                  >
+                    cc
+                  </div>
+                  <span class="text-xs text-gray-400">cc</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ========== 我的标签内容 ========== -->
+          <div id="panel-my" class="mt-6 hidden">
+            <!-- 筛选 + 搜索 -->
+            <div
+              class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            >
+              <div class="flex items-center gap-2 flex-wrap">
+                <button
+                  class="filter-chip-my px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-900 text-white transition-colors"
+                  data-filter="all"
+                  onclick="setMyFilter(this, 'all')"
+                >
+                  全部
+                </button>
+              </div>
+
+              <div class="relative">
+                <i
+                  data-lucide="search"
+                  class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                ></i>
+                <input
+                  type="text"
+                  placeholder="搜索我的技能..."
+                  class="w-52 h-9 pl-9 pr-3 rounded-lg border border-gray-200 text-sm outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 transition-all"
+                />
+              </div>
+            </div>
+
+            <!-- 我的技能卡片网格 -->
+            <div
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-5"
+            >
+              <!-- 已添加技能 1 -->
+              <div
+                class="group p-5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 relative cursor-pointer"
+                onclick="openSkillPreview('ppt-generation')"
+                data-skill-id="ppt-generation"
+              >
+                <!-- 更多操作 -->
+                <div class="absolute top-4 right-4">
+                  <button
+                    onclick="toggleMoreMenu(this, event)"
+                    class="p-1 text-gray-300 hover:text-gray-600 rounded transition-colors"
+                  >
+                    <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+                  </button>
+                  <!-- 下拉菜单 -->
+                  <div
+                    class="more-menu hidden absolute right-0 top-8 w-24 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-10"
+                  >
+                    <button
+                      class="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
+                      onclick="removeSkill(event)"
+                    >
+                      <span class="flex items-center gap-1.5">
+                        <i data-lucide="trash-2" class="w-3 h-3"></i>
+                        删除
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <h3 class="font-semibold text-sm text-gray-900 pr-6">
+                  演示文稿生成器
+                </h3>
+                <p
+                  class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed"
+                >
+                  Generate professional multi-page HTML presentations (PPT).
+                  Creates slide decks with cover, TOC, section dividers...
+                </p>
+                <div class="flex items-center gap-2 mt-4">
+                  <div
+                    class="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600"
+                  >
+                    S
+                  </div>
+                  <span class="text-xs text-gray-400">SkillHub</span>
+                </div>
+              </div>
+
+              <!-- 已添加技能 2 -->
+              <div
+                class="group p-5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 relative cursor-pointer"
+                onclick="openSkillPreview('image-generation')"
+                data-skill-id="image-generation"
+              >
+                <div class="absolute top-4 right-4">
+                  <button
+                    onclick="toggleMoreMenu(this, event)"
+                    class="p-1 text-gray-300 hover:text-gray-600 rounded transition-colors"
+                  >
+                    <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+                  </button>
+                  <div
+                    class="more-menu hidden absolute right-0 top-8 w-24 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-10"
+                  >
+                    <button
+                      class="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
+                      onclick="removeSkill(event)"
+                    >
+                      <span class="flex items-center gap-1.5">
+                        <i data-lucide="trash-2" class="w-3 h-3"></i>
+                        删除
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <h3 class="font-semibold text-sm text-gray-900 pr-6">
+                  图像创作工具
+                </h3>
+                <p
+                  class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed"
+                >
+                  Curated image generation prompt collection covering 17
+                  styles...
+                </p>
+                <div class="flex items-center gap-2 mt-4">
+                  <div
+                    class="w-5 h-5 rounded-full bg-pink-100 flex items-center justify-center text-[10px] font-bold text-pink-600"
+                  >
+                    查
+                  </div>
+                  <span class="text-xs text-gray-400">查女士</span>
+                </div>
+              </div>
+
+              <!-- 已添加技能 3 -->
+              <div
+                class="group p-5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 relative cursor-pointer"
+                onclick="openSkillPreview('industry-research')"
+                data-skill-id="industry-research"
+              >
+                <div class="absolute top-4 right-4">
+                  <button
+                    onclick="toggleMoreMenu(this, event)"
+                    class="p-1 text-gray-300 hover:text-gray-600 rounded transition-colors"
+                  >
+                    <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+                  </button>
+                  <div
+                    class="more-menu hidden absolute right-0 top-8 w-24 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-10"
+                  >
+                    <button
+                      class="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
+                      onclick="removeSkill(event)"
+                    >
+                      <span class="flex items-center gap-1.5">
+                        <i data-lucide="trash-2" class="w-3 h-3"></i>
+                        删除
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <h3 class="font-semibold text-sm text-gray-900 pr-6">
+                  行业研究报告
+                </h3>
+                <p
+                  class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed"
+                >
+                  Professional industry research report writer. Produces
+                  comprehensive, data-driven analysis...
+                </p>
+                <div class="flex items-center gap-2 mt-4">
+                  <div
+                    class="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center text-[10px] font-bold text-green-600"
+                  >
+                    M
+                  </div>
+                  <span class="text-xs text-gray-400">Matrix</span>
+                </div>
+              </div>
+
+              <!-- 已添加技能 4 -->
+              <div
+                class="group p-5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 relative cursor-pointer"
+                onclick="openSkillPreview('xiaohongshu-collector')"
+                data-skill-id="xiaohongshu-collector"
+              >
+                <div class="absolute top-4 right-4">
+                  <button
+                    onclick="toggleMoreMenu(this, event)"
+                    class="p-1 text-gray-300 hover:text-gray-600 rounded transition-colors"
+                  >
+                    <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+                  </button>
+                  <div
+                    class="more-menu hidden absolute right-0 top-8 w-24 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-10"
+                  >
+                    <button
+                      class="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
+                      onclick="removeSkill(event)"
+                    >
+                      <span class="flex items-center gap-1.5">
+                        <i data-lucide="trash-2" class="w-3 h-3"></i>
+                        删除
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <h3 class="font-semibold text-sm text-gray-900 pr-6">
+                  xiaohongshu-collector
+                </h3>
+                <p
+                  class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed"
+                >
+                  专业的小红书平台信息采集助手。当用户需要从小红书搜索和收集特定主题的笔记内容时使用此技能。
+                </p>
+                <div class="flex items-center gap-2 mt-4">
+                  <div
+                    class="w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center text-[10px] font-bold text-orange-600"
+                  >
+                    M
+                  </div>
+                  <span class="text-xs text-gray-400">MiniMax195811</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 空状态（当没有技能时显示） -->
+            <div
+              id="empty-my-skills"
+              class="hidden mt-12 flex flex-col items-center justify-center text-center"
+            >
+              <div
+                class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4"
+              >
+                <i data-lucide="puzzle" class="w-8 h-8 text-gray-300"></i>
+              </div>
+              <p class="text-sm text-gray-500">还没有添加任何技能</p>
+              <p class="text-xs text-gray-400 mt-1">去市场发现并添加技能吧</p>
+              <button
+                onclick="switchMainTab('market')"
+                class="mt-4 px-4 py-2 bg-gray-900 text-white text-xs font-medium rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                去发现技能
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ========== 技能详情弹窗（市场 tab） ========== -->
+    <div
+      id="skill-detail-modal"
+      class="fixed inset-0 z-50 hidden items-center justify-center"
+    >
+      <div
+        class="absolute inset-0 bg-black/40"
+        onclick="closeSkillDetail()"
+      ></div>
+      <div
+        id="skill-detail-content"
+        class="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 transform transition-all duration-200"
+      >
+        <button
+          onclick="closeSkillDetail()"
+          class="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+        >
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+
+        <h2
+          id="detail-modal-name"
+          class="text-lg font-semibold text-gray-900 pr-8"
+        >
+          stock-financial-analysis
+        </h2>
+
+        <div class="flex items-center gap-3 mt-3">
+          <div class="flex items-center gap-1.5">
+            <div
+              class="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600"
+            >
+              M
+            </div>
+            <span id="detail-modal-author" class="text-xs text-gray-500"
+              >MiniMax</span
+            >
+          </div>
+        </div>
+
+        <p
+          id="detail-modal-desc"
+          class="text-sm text-gray-600 mt-4 leading-relaxed"
+        >
+          专业的股票金融分析技能...
+        </p>
+
+      </div>
+    </div>
+
+    <!-- ========== 技能预览弹窗（我的 tab） ========== -->
+    <div
+      id="skill-preview-modal"
+      class="fixed inset-0 z-50 hidden items-center justify-center"
+    >
+      <div
+        class="absolute inset-0 bg-black/40"
+        onclick="closeSkillPreview()"
+      ></div>
+      <div
+        id="skill-preview-content"
+        class="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 p-6 transform transition-all duration-200 flex flex-col max-h-[80vh]"
+      >
+        <!-- 关闭按钮 -->
+        <button
+          onclick="closeSkillPreview()"
+          class="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors z-10"
+        >
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+
+        <!-- 删除按钮 -->
+        <button
+          onclick="deleteFromPreview()"
+          class="absolute top-4 right-12 p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50 transition-colors z-10"
+          title="删除技能"
+        >
+          <i data-lucide="trash-2" class="w-5 h-5"></i>
+        </button>
+
+        <h2
+          id="preview-modal-name"
+          class="text-lg font-semibold text-gray-900 pr-16"
+        >
+          stock-financial-analysis
+        </h2>
+
+        <!-- 文件预览区域（左树右内容） -->
+        <div
+          class="mt-4 border border-gray-200 rounded-lg overflow-hidden flex flex-1 min-h-[240px]"
+        >
+          <!-- 左侧文件树 -->
+          <div
+            class="w-44 bg-gray-50 border-r border-gray-200 p-3 overflow-y-auto shrink-0"
+          >
+            <div class="text-xs font-medium text-gray-500 mb-2">文件</div>
+            <div class="space-y-0.5 text-xs text-gray-600 font-mono">
+              <div
+                class="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-gray-200 cursor-pointer bg-gray-200"
+                onclick="previewFile('SKILL.md')"
+              >
+                <svg
+                  class="w-3.5 h-3.5 text-gray-400 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"
+                  />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                <span>SKILL.md</span>
+              </div>
+              <div
+                class="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-gray-200 cursor-pointer"
+                onclick="previewFile('scripts/')"
+              >
+                <svg
+                  class="w-3.5 h-3.5 text-gray-400 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                  />
+                </svg>
+                <span>scripts/</span>
+              </div>
+              <div
+                class="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-gray-200 cursor-pointer pl-5"
+                onclick="previewFile('scripts/generate.py')"
+              >
+                <svg
+                  class="w-3.5 h-3.5 text-gray-400 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"
+                  />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                <span>generate.py</span>
+              </div>
+              <div
+                class="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-gray-200 cursor-pointer"
+                onclick="previewFile('templates/')"
+              >
+                <svg
+                  class="w-3.5 h-3.5 text-gray-400 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                  />
+                </svg>
+                <span>templates/</span>
+              </div>
+              <div
+                class="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-gray-200 cursor-pointer pl-5"
+                onclick="previewFile('templates/default.html')"
+              >
+                <svg
+                  class="w-3.5 h-3.5 text-gray-400 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"
+                  />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                <span>default.html</span>
+              </div>
+              <div
+                class="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-gray-200 cursor-pointer"
+                onclick="previewFile('references/')"
+              >
+                <svg
+                  class="w-3.5 h-3.5 text-gray-400 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                  />
+                </svg>
+                <span>references/</span>
+              </div>
+            </div>
+          </div>
+          <!-- 右侧预览内容 -->
+          <div class="flex-1 bg-white p-4 overflow-y-auto">
+            <div
+              class="text-xs font-medium text-gray-400 mb-2 border-b border-gray-100 pb-1"
+              id="preview-modal-filename"
+            >
+              SKILL.md
+            </div>
+            <pre
+              class="text-xs text-gray-700 font-mono leading-relaxed whitespace-pre-wrap"
+              id="preview-modal-content"
+            >
+# 技能名称
+
+## 概述
+这是一个示例 SKILL.md 文件...
+            </pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 创建技能弹窗（占位） ========== -->
+    <div
+      id="create-modal"
+      class="fixed inset-0 z-50 hidden items-center justify-center"
+    >
+      <div
+        class="absolute inset-0 bg-black/40"
+        onclick="closeCreateModal()"
+      ></div>
+      <div
+        class="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6"
+      >
+        <button
+          onclick="closeCreateModal()"
+          class="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+        >
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+        <h2 class="text-lg font-semibold text-gray-900">创建新技能</h2>
+        <p class="text-sm text-gray-500 mt-1">
+          Phase 2 功能：通过填写表单或上传 SKILL.md 创建自定义技能
+        </p>
+        <div class="mt-6 flex justify-end">
+          <button
+            onclick="closeCreateModal()"
+            class="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            知道了
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      lucide.createIcons();
+
+      // ========== antd React 组件 ==========
+      const { createElement: h, useState, useLayoutEffect } = React;
+      const { createRoot } = ReactDOM;
+      const { Tooltip, Modal, message } = antd;
+
+      // 市场卡片右上角操作按钮（React + antd Tooltip）
+      function SkillActionBtn({ skillId, initialInMy }) {
+        const [inMy, setInMy] = useState(initialInMy);
+
+        const handleClick = (e) => {
+          e.stopPropagation();
+          e.nativeEvent.stopImmediatePropagation();
+          if (inMy) {
+            Modal.confirm({
+              title: '移除技能',
+              content: '确定要从「我的技能」中移除吗？',
+              okText: '移除',
+              okType: 'danger',
+              cancelText: '取消',
+              onOk: () => {
+                setInMy(false);
+                mySkillIds.delete(skillId);
+                removeSkillFromMyPanel(skillId);
+              },
+            });
+          } else {
+            setInMy(true);
+            mySkillIds.add(skillId);
+            message.success('已添加到「我的技能」');
+            syncSkillToMyPanel(skillId);
+          }
+        };
+
+        const tooltipTitle = inMy ? '移除' : '添加';
+        const btnClass = inMy
+          ? 'skill-action-btn w-6 h-6 rounded-full flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 hover:bg-gray-100 text-gray-900'
+          : 'skill-action-btn w-6 h-6 rounded-full flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 hover:bg-gray-100 text-gray-300 hover:text-gray-900';
+
+        const icon = inMy
+          ? h(
+              'svg',
+              {
+                width: 14,
+                height: 14,
+                viewBox: '0 0 24 24',
+                fill: 'none',
+                stroke: 'currentColor',
+                strokeWidth: 2.5,
+                strokeLinecap: 'round',
+                strokeLinejoin: 'round',
+              },
+              h('polyline', { points: '20 6 9 17 4 12' }),
+            )
+          : h(
+              'svg',
+              {
+                width: 14,
+                height: 14,
+                viewBox: '0 0 24 24',
+                fill: 'none',
+                stroke: 'currentColor',
+                strokeWidth: 2.5,
+                strokeLinecap: 'round',
+                strokeLinejoin: 'round',
+              },
+              h('line', { x1: 12, y1: 5, x2: 12, y2: 19 }),
+              h('line', { x1: 5, y1: 12, x2: 19, y2: 12 }),
+            );
+
+        return h(
+          Tooltip,
+          { title: tooltipTitle },
+          h(
+            'button',
+            {
+              className: btnClass,
+              'data-in-my': inMy,
+              onClick: handleClick,
+            },
+            icon,
+          ),
+        );
+      }
+
+      // 将市场卡片的原生按钮替换为 React 组件
+      document.querySelectorAll('.skill-action-btn').forEach((btn) => {
+        const card = btn.closest('[data-skill-id]');
+        const skillId = card?.dataset.skillId;
+        const inMy = btn.dataset.inMy === 'true';
+        if (!skillId) return;
+
+        const container = document.createElement('div');
+        container.className = 'absolute top-4 right-4';
+        btn.parentNode.replaceChild(container, btn);
+
+        const root = createRoot(container);
+        container._reactRoot = root;
+        root.render(h(SkillActionBtn, { skillId, initialInMy: inMy }));
+      });
+
+      // ========== Sidebar ==========
+      function openSidebar() {
+        document.body.classList.remove('sidebar-collapsed');
+        document
+          .getElementById('sidebar')
+          .classList.remove('-translate-x-full');
+        document.getElementById('sidebar-overlay').classList.remove('hidden');
+      }
+      function toggleSidebarCollapse() {
+        document.body.classList.toggle('sidebar-collapsed');
+      }
+      function closeSidebar() {
+        document.getElementById('sidebar').classList.add('-translate-x-full');
+        document.getElementById('sidebar-overlay').classList.add('hidden');
+      }
+
+      // ========== 主标签切换 ==========
+      function switchMainTab(tab) {
+        const marketBtn = document.getElementById('main-tab-market');
+        const myBtn = document.getElementById('main-tab-my');
+        const marketPanel = document.getElementById('panel-market');
+        const myPanel = document.getElementById('panel-my');
+        const createBtn = document.getElementById('btn-create');
+
+        if (tab === 'market') {
+          marketBtn.classList.add('text-gray-900', 'border-gray-900');
+          marketBtn.classList.remove('text-gray-500', 'border-transparent');
+          myBtn.classList.remove('text-gray-900', 'border-gray-900');
+          myBtn.classList.add('text-gray-500', 'border-transparent');
+          marketPanel.classList.remove('hidden');
+          myPanel.classList.add('hidden');
+          createBtn.classList.add('hidden');
+          createBtn.classList.remove('flex');
+        } else {
+          myBtn.classList.add('text-gray-900', 'border-gray-900');
+          myBtn.classList.remove('text-gray-500', 'border-transparent');
+          marketBtn.classList.remove('text-gray-900', 'border-gray-900');
+          marketBtn.classList.add('text-gray-500', 'border-transparent');
+          myPanel.classList.remove('hidden');
+          marketPanel.classList.add('hidden');
+          createBtn.classList.add('hidden');
+          createBtn.classList.remove('flex');
+        }
+      }
+
+      // ========== 市场筛选 ==========
+      function setFilter(btn, filter) {
+        document
+          .querySelectorAll('#panel-market .filter-chip')
+          .forEach((el) => {
+            el.classList.remove('bg-gray-900', 'text-white');
+            el.classList.add('bg-gray-100', 'text-gray-600');
+          });
+        btn.classList.remove('bg-gray-100', 'text-gray-600');
+        btn.classList.add('bg-gray-900', 'text-white');
+      }
+
+      // ========== 我的筛选 ==========
+      function setMyFilter(btn, filter) {
+        document.querySelectorAll('#panel-my .filter-chip-my').forEach((el) => {
+          el.classList.remove('bg-gray-900', 'text-white');
+          el.classList.add('bg-gray-100', 'text-gray-600');
+        });
+        btn.classList.remove('bg-gray-100', 'text-gray-600');
+        btn.classList.add('bg-gray-900', 'text-white');
+      }
+
+      // ========== 技能详情弹窗 ==========
+      const skillData = {
+        'stock-financial-analysis': {
+          name: 'stock-financial-analysis',
+          author: 'MiniMax',
+          desc: '专业的股票金融分析技能。当用户需要寻找短线交易机会、分析股票筹码分布、获取买入卖出信号、分析上证指数筹码变化、进行上市公司基本面分析、研究主营业务、行业发展、竞争环境、财务分析、估值分析，或提供上市公司财务报告要求综合分析时使用此技能。',
+          color: 'blue',
+          initial: 'M',
+        },
+        'ppt-generation': {
+          name: '演示文稿生成器',
+          author: 'SkillHub',
+          desc: 'Generate professional multi-page HTML presentations (PPT). Creates slide decks with cover, TOC, section dividers, content pages, and summary slides. Supports export to PDF/PPTX. TRIGGERS: PPT, 演示文稿, presentation, HTML slides, 幻灯片, slide deck, 汇报, 报告.',
+          color: 'blue',
+          initial: 'S',
+        },
+        'image-generation': {
+          name: '图像创作工具',
+          author: '查女士',
+          desc: 'Curated image generation prompt collection covering 17 styles: hand-drawn, illustration, photorealistic, stylized, anime, concept art, and more. Use when users want to generate images with specific artistic styles or need help crafting detailed image prompts.',
+          color: 'pink',
+          initial: '查',
+        },
+        'industry-research': {
+          name: '行业研究报告',
+          author: 'Matrix',
+          desc: 'Professional industry research report writer. Produces comprehensive, data-driven analysis with market sizing, competitive landscape, trend forecasts, and strategic recommendations. Ideal for investors, consultants, and business planners.',
+          color: 'green',
+          initial: 'M',
+        },
+        'xiaohongshu-collector': {
+          name: 'xiaohongshu-collector',
+          author: 'MiniMax195811',
+          desc: '专业的小红书平台信息采集助手。当用户需要从小红书搜索和收集特定主题的笔记内容时使用此技能。支持按关键词、话题、博主等维度采集数据，并自动整理为结构化报告。',
+          color: 'orange',
+          initial: 'M',
+        },
+        'story-video-generator': {
+          name: '故事视频生成器',
+          author: 'MiniMax',
+          desc: '将文字故事自动转化为视频内容。支持多种视频风格、配音选择和字幕生成，适合短视频创作者使用。输入故事大纲，输出完整的视频脚本和分镜描述。',
+          color: 'purple',
+          initial: 'M',
+        },
+        'knowledge-digest': {
+          name: '知识消化助手',
+          author: 'cc',
+          desc: '将长文、论文、报告自动提炼为结构化知识卡片。支持生成思维导图、摘要和关键概念提取。帮助用户快速掌握文档核心内容。',
+          color: 'teal',
+          initial: 'cc',
+        },
+        'req-to-prototype': {
+          name: '需求转原型',
+          author: 'cc',
+          desc: '将自然语言需求描述转化为产品原型设计文档。输出包含用户故事、流程图和低保真线框图描述，适合产品经理和设计师使用。',
+          color: 'indigo',
+          initial: 'cc',
+        },
+      };
+
+      // 当前详情/预览的技能ID
+      let currentDetailSkillId = null;
+      let currentPreviewSkillId = null;
+
+      // 已加入「我的技能」的ID集合（根据初始DOM同步）
+      const mySkillIds = new Set(
+        Array.from(document.querySelectorAll('#panel-my [data-skill-id]')).map(
+          (el) => el.dataset.skillId,
+        ),
+      );
+
+      function openSkillDetail(skillId) {
+        const data =
+          skillData[skillId] || skillData['stock-financial-analysis'];
+        document.getElementById('detail-modal-name').textContent = data.name;
+        document.getElementById('detail-modal-author').textContent =
+          data.author;
+        document.getElementById('detail-modal-desc').textContent = data.desc;
+
+        const modal = document.getElementById('skill-detail-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        const content = document.getElementById('skill-detail-content');
+        content.style.opacity = '0';
+        content.style.transform = 'scale(0.96)';
+        setTimeout(() => {
+          content.style.opacity = '1';
+          content.style.transform = 'scale(1)';
+        }, 10);
+      }
+
+      function openSkillPreview(skillId) {
+        currentPreviewSkillId = skillId;
+        const data =
+          skillData[skillId] || skillData['stock-financial-analysis'];
+        document.getElementById('preview-modal-name').textContent = data.name;
+
+        // 默认预览 SKILL.md
+        document.getElementById('preview-modal-filename').textContent =
+          'SKILL.md';
+        document.getElementById('preview-modal-content').textContent =
+          data.desc;
+
+        const modal = document.getElementById('skill-preview-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        const content = document.getElementById('skill-preview-content');
+        content.style.opacity = '0';
+        content.style.transform = 'scale(0.96)';
+        setTimeout(() => {
+          content.style.opacity = '1';
+          content.style.transform = 'scale(1)';
+        }, 10);
+      }
+
+      function previewFile(filename) {
+        document.getElementById('preview-modal-filename').textContent =
+          filename;
+        const data =
+          skillData[currentPreviewSkillId] ||
+          skillData['stock-financial-analysis'];
+        const contents = {
+          'SKILL.md': data.desc,
+          'scripts/generate.py':
+            '# generate.py\ndef run():\n    return "Hello from script"',
+          'templates/default.html':
+            '<!DOCTYPE html>\n<html>\n  <body>Template</body>\n</html>',
+        };
+        document.getElementById('preview-modal-content').textContent =
+          contents[filename] || '// File preview placeholder';
+      }
+
+      function deleteFromPreview() {
+        if (!currentPreviewSkillId) return;
+        Modal.confirm({
+          title: '删除技能',
+          content: '确定要从「我的技能」中移除吗？',
+          okText: '删除',
+          okType: 'danger',
+          cancelText: '取消',
+          onOk: () => {
+            mySkillIds.delete(currentPreviewSkillId);
+            removeSkillFromMyPanel(currentPreviewSkillId);
+            syncMarketBtnState(currentPreviewSkillId, false);
+            closeSkillPreview();
+          },
+        });
+      }
+
+      function closeSkillDetail() {
+        const modal = document.getElementById('skill-detail-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+
+      function closeSkillPreview() {
+        const modal = document.getElementById('skill-preview-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+
+      function addToMySkills() {
+        if (!currentDetailSkillId) return;
+        mySkillIds.add(currentDetailSkillId);
+        message.success('已添加到「我的技能」');
+        closeSkillDetail();
+        syncSkillToMyPanel(currentDetailSkillId);
+        syncMarketBtnState(currentDetailSkillId, true);
+      }
+
+      // 同步「我的技能」面板：添加卡片
+      function syncSkillToMyPanel(skillId) {
+        const grid = document.querySelector('#panel-my .grid');
+        if (!grid) return;
+        if (grid.querySelector(`[data-skill-id="${skillId}"]`)) return;
+
+        const data = skillData[skillId];
+        if (!data) return;
+
+        const shortDesc =
+          data.desc.length > 80 ? data.desc.slice(0, 80) + '...' : data.desc;
+
+        const div = document.createElement('div');
+        div.className =
+          'group p-5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 relative cursor-pointer';
+        div.setAttribute('onclick', `openSkillPreview('${skillId}')`);
+        div.setAttribute('data-skill-id', skillId);
+
+        div.innerHTML = `
+          <div class="absolute top-4 right-4">
+            <button onclick="toggleMoreMenu(this, event)" class="p-1 text-gray-300 hover:text-gray-600 rounded transition-colors">
+              <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+            </button>
+            <div class="more-menu hidden absolute right-0 top-8 w-24 bg-white rounded-lg border border-gray-200 shadow-lg py-1 z-10">
+              <button class="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors" onclick="removeSkill(event)">
+                <span class="flex items-center gap-1.5">
+                  <i data-lucide="trash-2" class="w-3 h-3"></i>
+                  删除
+                </span>
+              </button>
+            </div>
+          </div>
+          <h3 class="font-semibold text-sm text-gray-900 pr-6">${data.name}</h3>
+          <p class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed">${shortDesc}</p>
+          <div class="flex items-center gap-2 mt-4">
+            <div class="w-5 h-5 rounded-full bg-${data.color}-100 flex items-center justify-center text-[10px] font-bold text-${data.color}-600">${data.initial}</div>
+            <span class="text-xs text-gray-400">${data.author}</span>
+          </div>
+        `;
+
+        grid.appendChild(div);
+        lucide.createIcons();
+
+        const emptyState = document.getElementById('empty-my-skills');
+        if (emptyState && !emptyState.classList.contains('hidden')) {
+          emptyState.classList.add('hidden');
+        }
+      }
+
+      // 同步「我的技能」面板：移除卡片
+      function removeSkillFromMyPanel(skillId) {
+        const card = document.querySelector(
+          `#panel-my [data-skill-id="${skillId}"]`,
+        );
+        if (!card) return;
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          card.remove();
+          const grid = document.querySelector('#panel-my .grid');
+          if (grid && grid.children.length === 0) {
+            const emptyState = document.getElementById('empty-my-skills');
+            if (emptyState) emptyState.classList.remove('hidden');
+          }
+        }, 200);
+      }
+
+      // 同步市场 tab 按钮状态
+      function syncMarketBtnState(skillId, inMy) {
+        const marketCard = document.querySelector(
+          `#panel-market [data-skill-id="${skillId}"]`,
+        );
+        if (!marketCard) return;
+        const container = marketCard.querySelector('.absolute.top-4.right-4');
+        if (container && container._reactRoot) {
+          container._reactRoot.unmount();
+          const newRoot = createRoot(container);
+          container._reactRoot = newRoot;
+          newRoot.render(h(SkillActionBtn, { skillId, initialInMy: inMy }));
+        }
+      }
+
+      // ========== 创建技能弹窗 ==========
+      function showCreateModal() {
+        const modal = document.getElementById('create-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+      function closeCreateModal() {
+        const modal = document.getElementById('create-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+
+      // ========== 更多操作菜单 ==========
+      function toggleMoreMenu(btn, event) {
+        event.stopPropagation();
+        const menu = btn.nextElementSibling;
+        const isHidden = menu.classList.contains('hidden');
+
+        // 关闭所有其他菜单
+        document
+          .querySelectorAll('.more-menu')
+          .forEach((m) => m.classList.add('hidden'));
+
+        if (isHidden) {
+          menu.classList.remove('hidden');
+          lucide.createIcons();
+        }
+      }
+
+      function removeSkill(event) {
+        event.stopPropagation();
+        const card = event.target.closest('.group');
+        const skillId = card?.dataset.skillId;
+        Modal.confirm({
+          title: '删除技能',
+          content: '确定要删除这个技能吗？',
+          okText: '删除',
+          okType: 'danger',
+          cancelText: '取消',
+          onOk: () => {
+            if (card) {
+              card.style.opacity = '0';
+              card.style.transform = 'scale(0.95)';
+              setTimeout(() => {
+                card.remove();
+                const grid = document.querySelector('#panel-my .grid');
+                if (grid && grid.children.length === 0) {
+                  const emptyState = document.getElementById('empty-my-skills');
+                  if (emptyState) emptyState.classList.remove('hidden');
+                }
+              }, 200);
+            }
+            if (skillId) {
+              mySkillIds.delete(skillId);
+              syncMarketBtnState(skillId, false);
+            }
+          },
+        });
+        // 关闭菜单
+        document
+          .querySelectorAll('.more-menu')
+          .forEach((m) => m.classList.add('hidden'));
+      }
+
+      // 点击页面其他地方关闭菜单
+      document.addEventListener('click', () => {
+        document
+          .querySelectorAll('.more-menu')
+          .forEach((m) => m.classList.add('hidden'));
+      });
+
+      // ESC 关闭弹窗
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeSkillDetail();
+          closeSkillPreview();
+          closeCreateModal();
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,4173 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SkillHub Agent Debugger</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/css/all.min.css"
+    />
+    <style>
+      :root {
+        --bg: #1a1a2e;
+        --surface: #16213e;
+        --surface2: #0f3460;
+        --accent: #00d4aa;
+        --text: #eee;
+        --text2: #a0a0b0;
+        --border: #2a2a4a;
+        --green: #4ade80;
+        --yellow: #facc15;
+        --red: #f87171;
+        --blue: #60a5fa;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        height: 100vh;
+        display: flex;
+      }
+
+      /* ── Sidebar ── */
+      .sidebar {
+        width: 300px;
+        min-width: 300px;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .sidebar-header {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .sidebar-header h2 {
+        font-size: 16px;
+        color: var(--accent);
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .sidebar-header h2::before {
+        content: '⚡';
+      }
+      .btn-icon {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 6px;
+        padding: 5px 10px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: background 0.15s;
+      }
+      .btn-icon:hover {
+        background: var(--surface2);
+      }
+      .btn-delete {
+        margin-left: auto;
+        opacity: 0;
+        border-color: transparent !important;
+        color: var(--text2) !important;
+        transition:
+          opacity 0.15s,
+          color 0.15s;
+        font-size: 12px;
+        padding: 4px 8px;
+      }
+      .conv-item:hover .btn-delete {
+        opacity: 1;
+      }
+      .btn-delete:hover {
+        color: var(--red) !important;
+        background: rgba(233, 69, 96, 0.15) !important;
+      }
+
+      /* ── Conversation list ── */
+      @keyframes convPulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.3; transform: scale(0.8); }
+      }
+      .conv-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .conv-item {
+        padding: 10px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.15s;
+        border: 1px solid transparent;
+      }
+      .conv-item:hover {
+        background: var(--surface2);
+      }
+      .conv-item.active {
+        background: var(--surface2);
+        border-color: var(--accent);
+      }
+      .conv-item .conv-title {
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 3px;
+      }
+      .conv-item .conv-meta {
+        font-size: 11px;
+        color: var(--text2);
+        display: flex;
+        gap: 8px;
+      }
+      .conv-item .conv-status {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        vertical-align: middle;
+        margin-right: 4px;
+      }
+      .conv-item .conv-status.completed {
+        background: var(--green);
+      }
+      .conv-item .conv-status.running {
+        background: var(--yellow);
+        animation: convPulse 1.2s ease-in-out infinite;
+      }
+      .conv-item .conv-status.step_limit {
+        background: #f97316;
+      }
+      .conv-item .conv-status.error {
+        background: var(--red);
+      }
+      .conv-empty {
+        text-align: center;
+        color: var(--text2);
+        font-size: 13px;
+        padding: 24px 16px;
+      }
+
+      /* ── Debug section (collapsible) ── */
+      .debug-section {
+        border-top: 1px solid var(--border);
+      }
+      .debug-toggle {
+        width: 100%;
+        padding: 10px 16px;
+        background: transparent;
+        border: none;
+        color: var(--text2);
+        cursor: pointer;
+        font-size: 12px;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .debug-toggle:hover {
+        color: var(--text);
+      }
+      .debug-toggle::before {
+        content: '▶';
+        font-size: 9px;
+        transition: transform 0.2s;
+      }
+      .debug-toggle.open::before {
+        transform: rotate(90deg);
+      }
+      .debug-body {
+        display: none;
+        padding: 0 12px 12px;
+        overflow-y: auto;
+        max-height: 440px;
+      }
+      .debug-body.open {
+        display: block;
+      }
+      .debug-body .section {
+        background: var(--surface2);
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 8px;
+      }
+      .debug-body .section h3 {
+        font-size: 11px;
+        color: var(--text2);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 6px;
+      }
+      .debug-body label {
+        display: block;
+        font-size: 11px;
+        color: var(--text2);
+        margin-bottom: 3px;
+      }
+      .debug-body input,
+      .debug-body textarea,
+      .debug-body select {
+        width: 100%;
+        padding: 6px 8px;
+        border-radius: 5px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 12px;
+        font-family: inherit;
+      }
+      .debug-body input:focus,
+      .debug-body textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .debug-body textarea {
+        resize: vertical;
+        min-height: 50px;
+      }
+      .debug-body button {
+        padding: 5px 10px;
+        border-radius: 5px;
+        border: none;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        transition: opacity 0.15s;
+      }
+      .debug-body button:hover {
+        opacity: 0.85;
+      }
+      .debug-body .btn-primary {
+        background: var(--accent);
+        color: #000;
+        width: 100%;
+      }
+      .debug-body .btn-sm {
+        padding: 3px 8px;
+        font-size: 10px;
+      }
+      .debug-body .btn-outline {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+      .debug-body .row {
+        display: flex;
+        gap: 6px;
+      }
+      .debug-body .row > * {
+        flex: 1;
+      }
+      .status-dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        margin-right: 4px;
+      }
+      .status-dot.ok {
+        background: var(--green);
+      }
+      .status-dot.err {
+        background: #f97316;
+      }
+      .status-dot.idle {
+        background: var(--yellow);
+      }
+
+      /* ── Main ── */
+      .main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .toolbar {
+        padding: 10px 16px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .toolbar .title {
+        font-weight: 700;
+        font-size: 14px;
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .toolbar .badge {
+        font-size: 13px;
+        padding: 4px 12px;
+        border-radius: 10px;
+        background: var(--surface2);
+        color: var(--text2);
+      }
+      #tokenCount {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--accent);
+        background: rgba(0, 212, 170, 0.12);
+      }
+      .toolbar .badge.active {
+        background: var(--accent);
+        color: #000;
+      }
+      /* ── Chat column (messages + input, sits beside artifacts panel) ── */
+      .chat-column {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+      }
+      .messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .msg {
+        max-width: 85%;
+        padding: 10px 14px;
+        border-radius: 12px;
+        font-size: 13.5px;
+        line-height: 1.6;
+        word-break: break-word;
+      }
+      .msg.user {
+        align-self: flex-end;
+        background: var(--surface2);
+        border-bottom-right-radius: 4px;
+      }
+      .msg.assistant {
+        align-self: flex-start;
+        background: #1e3a5f;
+        border-bottom-left-radius: 4px;
+        width: 75%;
+      }
+      .msg.assistant .error-msg {
+        background: rgba(248, 113, 113, 0.1);
+        border: 1px solid rgba(248, 113, 113, 0.3);
+        border-left: 3px solid var(--red);
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin: 4px 0;
+        color: var(--red);
+        font-size: 13px;
+        line-height: 1.5;
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .msg.assistant .error-msg .error-icon {
+        flex-shrink: 0;
+        font-size: 14px;
+        margin-top: 1px;
+      }
+      .msg.assistant .hint-msg {
+        background: rgba(250, 204, 21, 0.1);
+        border: 1px solid rgba(250, 204, 21, 0.3);
+        border-left: 3px solid var(--yellow);
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin: 4px 0;
+        color: var(--yellow);
+        font-size: 13px;
+        line-height: 1.5;
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .msg.assistant .hint-msg .hint-icon {
+        flex-shrink: 0;
+        font-size: 14px;
+        margin-top: 1px;
+      }
+      .msg.system {
+        align-self: center;
+        background: transparent;
+        color: var(--text2);
+        font-size: 12px;
+        font-style: italic;
+        max-width: 100%;
+        text-align: center;
+      }
+      .msg.welcome {
+        align-self: center;
+        text-align: center;
+        color: var(--text2);
+        font-size: 14px;
+        max-width: 100%;
+        padding: 32px 16px;
+      }
+      .msg.welcome h3 {
+        color: var(--text);
+        margin-bottom: 8px;
+      }
+
+      /* ── Markdown ── */
+      .msg h1,
+      .msg h2,
+      .msg h3,
+      .msg h4,
+      .msg h5,
+      .msg h6 {
+        margin: 8px 0 5px;
+        line-height: 1.3;
+      }
+      .msg h1 {
+        font-size: 1.3em;
+      }
+      .msg h2 {
+        font-size: 1.15em;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 3px;
+      }
+      .msg h3 {
+        font-size: 1.05em;
+      }
+      .msg p {
+        margin: 3px 0;
+      }
+      .msg p:first-child {
+        margin-top: 0;
+      }
+      .msg p:last-child {
+        margin-bottom: 0;
+      }
+      .msg ul,
+      .msg ol {
+        padding-left: 18px;
+        margin: 5px 0;
+      }
+      .msg li {
+        margin: 2px 0;
+      }
+      .msg pre {
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 8px 10px;
+        overflow-x: auto;
+        font-size: 12px;
+        margin: 6px 0;
+      }
+      .msg code {
+        background: rgba(0, 0, 0, 0.3);
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-size: 12px;
+        font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      }
+      .msg pre code {
+        background: transparent;
+        padding: 0;
+        border-radius: 0;
+        font-size: inherit;
+      }
+      .msg blockquote {
+        border-left: 3px solid var(--accent);
+        padding-left: 8px;
+        margin: 5px 0;
+        color: var(--text2);
+      }
+      .msg table {
+        border-collapse: collapse;
+        margin: 6px 0;
+        font-size: 12px;
+        width: 100%;
+      }
+      .msg th,
+      .msg td {
+        border: 1px solid var(--border);
+        padding: 5px 8px;
+        text-align: left;
+      }
+      .msg th {
+        background: rgba(0, 0, 0, 0.2);
+        font-weight: 600;
+      }
+      .msg a {
+        color: var(--blue);
+      }
+      .msg hr {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 8px 0;
+      }
+      .msg strong {
+        font-weight: 700;
+        color: #fff;
+      }
+      .msg img {
+        max-width: 100%;
+        border-radius: 4px;
+      }
+
+      .input-area {
+        padding: 0;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        margin: 0 16px 16px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transition: border-color 0.2s;
+      }
+      .input-area:focus-within {
+        border-color: var(--accent);
+      }
+      .input-area textarea {
+        display: block;
+        width: 100%;
+        font-size: 14px;
+        padding: 10px 14px;
+        border: none;
+        background: transparent;
+        color: var(--text);
+        font-family: inherit;
+        resize: none;
+        outline: none;
+        min-height: 80px;
+        max-height: 200px;
+        line-height: 1.5;
+      }
+      .input-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 10px 8px;
+      }
+      .input-area textarea::placeholder {
+        color: var(--text2);
+      }
+      .input-area button {
+        background: var(--accent);
+        color: #fff;
+        font-size: 14px;
+        padding: 0 18px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: opacity 0.15s;
+        flex-shrink: 0;
+        height: 36px;
+        line-height: 36px;
+      }
+      .input-area button:hover {
+        opacity: 0.85;
+      }
+      .input-area button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .input-area button.btn-stop {
+        background: var(--red);
+      }
+      .input-area button.btn-stop:hover {
+        opacity: 0.85;
+      }
+      .input-area.hidden {
+        display: none;
+      }
+
+      /* ── Cancelled note ── */
+      .cancelled-note {
+        color: var(--yellow);
+        font-size: 12px;
+        font-style: italic;
+        margin-top: 8px;
+        padding: 6px 10px;
+        background: rgba(250, 204, 21, 0.08);
+        border: 1px solid rgba(250, 204, 21, 0.2);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      /* ── Thinking toggle ── */
+      .thinking-toggle {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0 10px;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+        font-size: 12px;
+        color: #bbb;
+        transition:
+          color 0.15s,
+          background 0.15s;
+        flex-shrink: 0;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        height: 36px;
+        box-sizing: border-box;
+      }
+      .thinking-toggle:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .thinking-toggle.active {
+        color: var(--yellow);
+      }
+      .thinking-toggle .switch {
+        width: 38px;
+        height: 22px;
+        border-radius: 11px;
+        background: #555;
+        position: relative;
+        transition: background 0.2s;
+      }
+      .thinking-toggle.active .switch {
+        background: var(--accent);
+      }
+      .thinking-toggle .switch::after {
+        content: '';
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        top: 2px;
+        left: 2px;
+        transition: transform 0.2s;
+      }
+      .thinking-toggle.active .switch::after {
+        transform: translateX(16px);
+      }
+      /* 锁定状态：该模型不支持关闭深度思考（如 Kimi K2.7） */
+      .thinking-toggle.locked {
+        cursor: not-allowed;
+      }
+      .thinking-toggle .thinking-lock {
+        font-size: 11px;
+        color: var(--yellow);
+      }
+
+      /* ── Model selector ── */
+      .model-select {
+        appearance: none;
+        -webkit-appearance: none;
+        background: var(--surface2);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 4px 28px 4px 10px;
+        font-size: 12px;
+        font-family: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23a0a0b0'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        transition: border-color 0.2s;
+        max-width: 160px;
+      }
+      .model-select:hover {
+        border-color: var(--accent);
+      }
+      .model-select:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .model-select option {
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      /* ── Tool call cards ── */
+      .tool-card {
+        background: rgba(0, 0, 0, 0.25);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin: 5px 0;
+        font-size: 12px;
+        overflow: hidden;
+        transition: border-color 0.2s;
+      }
+      .tool-card:hover {
+        border-color: #3a3a5a;
+      }
+      .tool-card .tc-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 10px;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.15s;
+      }
+      .tool-card .tc-header:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .tool-card .tc-icon {
+        font-size: 13px;
+        flex-shrink: 0;
+      }
+      .tool-card .tc-name {
+        color: var(--yellow);
+        font-weight: 600;
+        flex: 1;
+      }
+      .tool-card .tc-badge {
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text2);
+        flex-shrink: 0;
+      }
+      .tool-card .tc-arrow {
+        font-size: 14px;
+        color: var(--text2);
+        transition: transform 0.2s;
+        flex-shrink: 0;
+      }
+      .tool-card.expanded .tc-arrow {
+        transform: rotate(90deg);
+      }
+      .tool-card .tc-body {
+        display: none;
+        border-top: 1px solid var(--border);
+        padding: 8px 10px;
+      }
+      .tool-card.expanded .tc-body {
+        display: block;
+      }
+      .tool-card .tc-section {
+        margin-bottom: 6px;
+      }
+      .tool-card .tc-section:last-child {
+        margin-bottom: 0;
+      }
+      .tool-card .tc-label {
+        font-size: 10px;
+        color: var(--text2);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 3px;
+      }
+      .tool-card .tc-label.in {
+        color: var(--blue);
+      }
+      .tool-card .tc-label.out {
+        color: var(--green);
+      }
+      .tool-card .tc-label.err {
+        color: var(--red);
+      }
+      .tool-card pre {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 4px;
+        padding: 5px 8px;
+        margin: 0;
+        font-size: 11px;
+        max-height: 200px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+        font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        line-height: 1.4;
+      }
+      .tool-card .tc-pending {
+        color: var(--text2);
+        font-style: italic;
+        font-size: 11px;
+        padding: 4px 0;
+      }
+
+      /* ── Generating status bar (pinned above the input area) ── */
+      .gen-status {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 10px 14px;
+        margin: 0 16px 8px;
+        border: 1px solid var(--accent);
+        border-radius: 10px;
+        background: rgba(0, 212, 170, 0.18);
+        box-shadow: 0 0 14px rgba(0, 212, 170, 0.35);
+        font-size: 13px;
+        font-weight: 600;
+        color: #9ff7e6;
+      }
+      .gen-spinner {
+        width: 15px;
+        height: 15px;
+        border: 2.5px solid rgba(0, 212, 170, 0.35);
+        border-top-color: #9ff7e6;
+        border-radius: 50%;
+        animation: gen-spin 0.7s linear infinite;
+        flex-shrink: 0;
+        filter: drop-shadow(0 0 4px rgba(0, 212, 170, 0.6));
+      }
+      @keyframes gen-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ── Scrollbar ── */
+      ::-webkit-scrollbar {
+        width: 5px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 3px;
+      }
+
+      /* ── File upload ── */
+      .file-chip-area {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 8px 10px 0;
+      }
+      .file-chip-area:empty {
+        display: none;
+      }
+      .file-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: var(--surface2);
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+      .file-chip .chip-remove {
+        cursor: pointer;
+        color: var(--text2);
+        font-size: 12px;
+        line-height: 1;
+        margin-left: 2px;
+      }
+      .file-chip .chip-remove:hover {
+        color: var(--red);
+      }
+      .btn-attach {
+        background: transparent;
+        border: 1px solid #666;
+        color: #ccc;
+        border-radius: 6px;
+        padding: 0 10px;
+        cursor: pointer;
+        font-size: 16px;
+        transition:
+          background 0.15s,
+          color 0.15s,
+          border-color 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        height: 36px;
+        width: 36px;
+        box-sizing: border-box;
+      }
+      .btn-attach:hover {
+        background: rgba(0, 212, 170, 0.15);
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+      .btn-attach.has-files {
+        color: var(--accent);
+        border-color: var(--accent);
+        background: rgba(0, 212, 170, 0.08);
+      }
+
+      /* ── File path links in messages ── */
+      .file-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 10px;
+        margin: 1px 0;
+        border-radius: 6px;
+        background: rgba(0, 212, 170, 0.1);
+        border: 1px solid rgba(0, 212, 170, 0.25);
+        color: var(--accent);
+        cursor: pointer;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 600;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+      }
+      .file-link:hover {
+        background: rgba(0, 212, 170, 0.2);
+        border-color: var(--accent);
+      }
+
+      /* ── File Modal ── */
+      .file-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+      }
+      .file-modal-overlay.open {
+        display: flex;
+      }
+      .file-modal {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        width: 90vw;
+        max-width: 800px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+      }
+      .file-modal-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .file-modal-header .fm-icon {
+        font-size: 22px;
+      }
+      .file-modal-header .fm-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .file-modal-header .fm-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .file-modal-header .fm-meta {
+        font-size: 11px;
+        color: var(--text2);
+        display: flex;
+        gap: 10px;
+        margin-top: 2px;
+      }
+      .file-modal-header .fm-close {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 6px;
+        padding: 4px 10px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background 0.15s;
+        flex-shrink: 0;
+      }
+      .file-modal-header .fm-close:hover {
+        background: var(--surface2);
+      }
+
+      .file-modal-body {
+        flex: 1;
+        overflow: auto;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 200px;
+        background: rgba(0, 0, 0, 0.25);
+      }
+      .file-modal-body img {
+        max-width: 100%;
+        max-height: 60vh;
+        object-fit: contain;
+        border-radius: 4px;
+      }
+      .file-modal-body pre {
+        width: 100%;
+        max-height: 60vh;
+        overflow: auto;
+        padding: 14px 18px;
+        margin: 0;
+        font-size: 12px;
+        font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        color: var(--text);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .file-modal-body iframe {
+        width: 100%;
+        height: 60vh;
+        border: none;
+      }
+      .file-modal-body .fm-placeholder {
+        text-align: center;
+        color: var(--text2);
+        padding: 40px;
+      }
+      .file-modal-body .fm-placeholder .fm-big-icon {
+        font-size: 56px;
+        margin-bottom: 14px;
+      }
+      .file-modal-body .fm-placeholder .fm-hint {
+        font-size: 13px;
+        color: var(--text2);
+        line-height: 1.6;
+      }
+
+      .file-modal-footer {
+        display: flex;
+        gap: 8px;
+        padding: 12px 18px;
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .file-modal-footer button {
+        padding: 7px 18px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: opacity 0.15s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .file-modal-footer button:hover {
+        opacity: 0.85;
+      }
+      .file-modal-footer .fm-btn-download {
+        background: var(--accent);
+        color: #000;
+        flex: 1;
+        justify-content: center;
+      }
+
+      /* ── Artifacts Panel ── */
+      .main-body {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .artifacts-panel {
+        width: 280px;
+        min-width: 280px;
+        background: var(--surface);
+        border-left: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transition:
+          width 0.25s,
+          min-width 0.25s,
+          opacity 0.25s;
+      }
+      .artifacts-panel.collapsed {
+        width: 0;
+        min-width: 0;
+        opacity: 0;
+        border-left-color: transparent;
+      }
+      .ap-header {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--accent);
+        flex-shrink: 0;
+        user-select: none;
+      }
+      .ap-count {
+        font-size: 11px;
+        padding: 1px 7px;
+        border-radius: 10px;
+        background: var(--surface2);
+        color: var(--text2);
+      }
+      .ap-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .ap-empty {
+        text-align: center;
+        color: var(--text2);
+        font-size: 12px;
+        padding: 32px 16px;
+        line-height: 1.6;
+      }
+      /* ── File Tree ── */
+      .ft-root {
+        margin-bottom: 4px;
+      }
+      .ft-root-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 4px;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--accent);
+        cursor: pointer;
+        user-select: none;
+        border-radius: 4px;
+      }
+      .ft-root-header:hover {
+        background: var(--surface2);
+      }
+      .ft-root-header .ft-toggle {
+        font-size: 10px;
+        width: 14px;
+        text-align: center;
+        transition: transform 0.15s;
+      }
+      .ft-root-header .ft-toggle.open {
+        transform: rotate(90deg);
+      }
+      .ft-root-header .ft-label {
+        flex: 1;
+      }
+      .ft-root-header .ft-badge {
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 8px;
+        background: var(--surface2);
+        color: var(--text2);
+        font-weight: 400;
+      }
+      .ft-children {
+        overflow: hidden;
+      }
+      .ft-children.collapsed {
+        display: none;
+      }
+      /* dir nodes */
+      .ft-dir {
+        margin-left: 0;
+      }
+      .ft-dir-header {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 4px;
+        font-size: 12px;
+        color: var(--text);
+        cursor: pointer;
+        user-select: none;
+        border-radius: 4px;
+      }
+      .ft-dir-header:hover {
+        background: var(--surface2);
+      }
+      .ft-dir-header .ft-toggle {
+        font-size: 9px;
+        width: 12px;
+        text-align: center;
+        transition: transform 0.15s;
+      }
+      .ft-dir-header .ft-toggle.open {
+        transform: rotate(90deg);
+      }
+      .ft-dir-header .ft-icon {
+        font-size: 13px;
+        width: 16px;
+        text-align: center;
+      }
+      .ft-dir-children {
+        margin-left: 14px;
+        overflow: hidden;
+      }
+      .ft-dir-children.collapsed {
+        display: none;
+      }
+      /* file nodes */
+      .ft-file {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 4px;
+        font-size: 12px;
+        color: var(--text);
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      .ft-file:hover {
+        background: var(--surface2);
+      }
+      .ft-file .ft-icon {
+        font-size: 13px;
+        width: 16px;
+        text-align: center;
+        flex-shrink: 0;
+      }
+      .ft-file .ft-name {
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ft-file .ft-size {
+        font-size: 10px;
+        color: var(--text2);
+        flex-shrink: 0;
+      }
+      .ft-file .ft-actions {
+        display: none;
+        gap: 2px;
+        flex-shrink: 0;
+      }
+      .ft-file:hover .ft-actions {
+        display: flex;
+      }
+      .ft-file .ft-actions button {
+        padding: 1px 5px;
+        border-radius: 3px;
+        border: none;
+        cursor: pointer;
+        font-size: 10px;
+      }
+      .ft-btn-view {
+        background: var(--accent);
+        color: #000;
+      }
+      .ft-btn-dl {
+        background: transparent;
+        border: 1px solid var(--border) !important;
+        color: var(--text);
+      }
+
+      /* ── Skills Grid ── */
+      .skills-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .skills-header .sh-count {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: var(--surface2);
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .skills-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 8px;
+      }
+      .skill-card {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 12px;
+        cursor: default;
+        transition:
+          border-color 0.15s,
+          background 0.15s;
+      }
+      .skill-card:hover {
+        border-color: var(--accent);
+        background: rgba(0, 212, 170, 0.06);
+      }
+      .skill-card .sc-top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .skill-card .sc-icon {
+        font-size: 18px;
+        flex-shrink: 0;
+        width: 24px;
+        text-align: center;
+      }
+      .skill-card .sc-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .skill-card .sc-badge {
+        font-size: 10px;
+        padding: 2px 7px;
+        border-radius: 8px;
+        font-weight: 600;
+        flex-shrink: 0;
+      }
+      .skill-card .sc-badge.on {
+        background: rgba(74, 222, 128, 0.15);
+        color: var(--green);
+      }
+      .skill-card .sc-badge.off {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text2);
+      }
+      .skill-card .sc-desc {
+        font-size: 11.5px;
+        color: var(--text2);
+        line-height: 1.5;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      /* ── Skills Panel (PR4) ── */
+      .skills-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .skills-tabs {
+        display: flex;
+        gap: 6px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 8px;
+      }
+      .skills-tab {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text2);
+        border-radius: 8px;
+        padding: 6px 14px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: all 0.15s;
+      }
+      .skills-tab:hover {
+        background: var(--surface2);
+        color: var(--text);
+      }
+      .skills-tab.active {
+        background: var(--accent);
+        color: #000;
+        border-color: var(--accent);
+      }
+      .skills-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .skills-section-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .skills-empty {
+        font-size: 12px;
+        color: var(--text2);
+        padding: 12px 4px;
+      }
+      .skills-loading {
+        font-size: 12px;
+        color: var(--text2);
+        padding: 16px 4px;
+      }
+      .sc-actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .sc-btn {
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .sc-btn:hover {
+        background: var(--surface2);
+      }
+      .sc-btn-primary {
+        background: rgba(0, 212, 170, 0.15);
+        color: var(--accent);
+        border-color: rgba(0, 212, 170, 0.4);
+      }
+      .sc-btn-primary:hover {
+        background: rgba(0, 212, 170, 0.25);
+      }
+      .sc-btn-danger {
+        color: var(--red);
+        border-color: rgba(248, 113, 113, 0.3);
+      }
+      .sc-btn-danger:hover {
+        background: rgba(248, 113, 113, 0.12);
+      }
+      .sc-meta {
+        font-size: 11px;
+        color: var(--text2);
+        margin-top: 6px;
+      }
+      .sc-note {
+        font-size: 11px;
+        color: var(--red);
+        margin-top: 6px;
+        padding: 6px 8px;
+        background: rgba(248, 113, 113, 0.1);
+        border-radius: 6px;
+        line-height: 1.4;
+      }
+      .skill-card .sc-badge.draft {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text2);
+      }
+      .skill-card .sc-badge.pending {
+        background: rgba(250, 204, 21, 0.15);
+        color: var(--yellow);
+      }
+      .skill-card .sc-badge.approved {
+        background: rgba(74, 222, 128, 0.15);
+        color: var(--green);
+      }
+      .skill-card .sc-badge.rejected {
+        background: rgba(248, 113, 113, 0.15);
+        color: var(--red);
+      }
+      .skill-card .sc-badge.builtin {
+        background: rgba(96, 165, 250, 0.15);
+        color: var(--blue);
+      }
+      .skills-upload-form {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .skills-upload-form input[type='text'] {
+        flex: 1;
+        min-width: 180px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+      .skills-upload-form input[type='text']:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .skills-upload-form input[type='file'] {
+        color: var(--text2);
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2>对话</h2>
+        <button class="btn-icon" onclick="showSkills()" title="我的技能 / 技能广场">
+          📋
+        </button>
+        <button class="btn-icon" onclick="newConversation()" title="新对话">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+      </div>
+
+      <!-- Conversation list -->
+      <div class="conv-list" id="convList">
+        <div class="conv-empty">加载中...</div>
+      </div>
+
+      <!-- Debug section -->
+      <div class="debug-section">
+        <button class="debug-toggle" id="debugToggle" onclick="toggleDebug()">
+          调试
+        </button>
+        <div class="debug-body" id="debugBody">
+          <div class="section" id="connSection">
+            <h3>连接</h3>
+            <label>Base URL</label>
+            <div style="display:flex;gap:4px;align-items:center">
+              <input
+                id="baseUrl"
+                value=""
+                placeholder="http://localhost:8001"
+                style="flex:1"
+              />
+              <span id="envBadge" style="font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;flex-shrink:0;background:var(--surface2);color:var(--text2)">...</span>
+            </div>
+            <div
+              style="
+                margin-top: 4px;
+                display: flex;
+                gap: 4px;
+                align-items: center;
+              "
+            >
+              <span id="healthStatus" class="status-dot idle"></span>
+              <span id="healthText" style="font-size: 11px; color: var(--text2)"
+                >未检测</span
+              >
+              <button
+                class="btn-sm btn-outline"
+                onclick="checkHealth()"
+                style="margin-left: auto"
+              >
+                检测
+              </button>
+            </div>
+          </div>
+
+          <div class="section" id="authSection">
+            <h3>Auth (JWT)</h3>
+            <input
+              id="token"
+              placeholder="粘贴 JWT token..."
+              oninput="setToken(this.value.trim())"
+            />
+            <div
+              style="
+                margin-top: 4px;
+                display: flex;
+                gap: 4px;
+                align-items: center;
+              "
+            >
+              <span id="authStatus" class="status-dot idle"></span>
+              <span id="authText" style="font-size: 11px; color: var(--text2)"
+                >未验证</span
+              >
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>快捷操作</h3>
+            <div style="display: flex; flex-direction: column; gap: 3px">
+              <button
+                class="btn-sm btn-outline"
+                onclick="quickSend('1+1=几')"
+              >
+                🧮 1+1=几
+              </button>
+              <button
+                class="btn-sm btn-outline"
+                onclick="quickSend('你好，请介绍一下你自己')"
+              >
+                👋 自我介绍
+              </button>
+              <button
+                class="btn-sm btn-outline"
+                onclick="quickSend('现在几点了？')"
+              >
+                🕐 现在几点
+              </button>
+              <button
+                class="btn-sm btn-outline"
+                onclick="quickSend('计算从1加到100的结果')"
+              >
+                🔢 1加到100
+              </button>
+              <button
+                class="btn-sm btn-outline"
+                onclick="quickSend('小明比小红大3岁，5年后小红20岁，小明现在几岁？')"
+              >
+                🧩 逻辑推理
+              </button>
+            </div>
+            <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 3px">
+              <div style="font-size:10px;color:var(--text2);padding:2px 0">📁 文件操作</div>
+              <button
+                class="btn-sm btn-outline"
+                onclick="quickSend('在outputs目录下创建一个hello.txt文件，内容是：Hello from SkillHub!')"
+              >
+                📝 创建文件
+              </button>
+              <button
+                class="btn-sm btn-outline"
+                onclick="quickSend('读取workspace/hello.txt文件的内容')"
+              >
+                📖 读取文件
+              </button>
+              <button
+                class="btn-sm btn-outline"
+                onclick="quickSend('列出workspace目录下的所有文件')"
+              >
+                📂 列出文件
+              </button>
+            </div>
+            <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 3px">
+              <div style="font-size:10px;color:var(--text2);padding:2px 0">💻 代码 & 工具</div>
+              <button
+                class="btn-sm btn-outline"
+                onclick="quickSend('写一个Python脚本计算斐波那契数列前20项，保存到outputs/fib.py并运行')"
+              >
+                🐍 写脚本并运行
+              </button>
+              <button
+                class="btn-sm btn-outline"
+                onclick="quickSend('用bash命令查看当前系统时间和磁盘使用情况')"
+              >
+                🖥 系统信息
+              </button>
+              <button
+                class="btn-sm btn-outline"
+                onclick="quickSend('搜索workspace目录下所有.py文件，然后统计每个文件的行数')"
+              >
+                🔍 搜索统计
+              </button>
+            </div>
+            <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 3px">
+              <div style="font-size:10px;color:var(--text2);padding:2px 0">🤖 子代理</div>
+              <button
+                class="btn-sm btn-outline"
+                onclick="quickSend('开启两个子代理，一个写关于春天的作文，一个写关于秋天的作文，写完后把两篇作文合并保存到outputs/春夏秋冬.txt')"
+              >
+                🧬 委派子代理
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ MAIN ═══════════════════════ -->
+    <div class="main">
+      <div class="toolbar">
+        <span class="title" id="convTitle">新对话</span>
+
+        <select class="model-select" id="modelSelect" onchange="onModelChange(this.value)" title="选择模型">
+        </select>
+
+        <span id="tokenCount" class="badge">0 tokens</span>
+      </div>
+
+      <div class="main-body">
+        <div class="chat-column">
+          <div class="messages" id="messages">
+            <div class="msg welcome">
+              <h3>👋 爱共创AIGC Agent</h3>
+              <p>选择左侧对话或开始新对话</p>
+            </div>
+          </div>
+
+          <div class="input-area" id="input-area">
+            <div class="file-chip-area" id="fileChips"></div>
+            <textarea
+              id="userInput"
+              placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
+              rows="1"
+              onkeydown="onInputKeydown(event)"
+            ></textarea>
+            <div class="input-row">
+              <label
+                class="thinking-toggle active"
+                id="thinkingToggle"
+                onclick="toggleThinking()"
+                title="深度思考"
+              >
+                <span class="switch"></span>
+                <span id="thinkingLabel">深度思考</span>
+                <i
+                  class="fa-solid fa-lock thinking-lock"
+                  id="thinkingLock"
+                  style="display: none"
+                  title="该模型不支持关闭深度思考"
+                ></i>
+              </label>
+              <span style="flex: 1"></span>
+              <input
+                type="file"
+                id="fileInput"
+                multiple
+                hidden
+                onchange="onFilesSelected()"
+              />
+              <button
+                class="btn-attach"
+                id="attachBtn"
+                onclick="document.getElementById('fileInput').click()"
+                title="添加附件"
+              >
+                <i class="fa-solid fa-paperclip"></i>
+              </button>
+              <button id="sendBtn" onclick="send()">发送</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════ FILE TREE PANEL ═══════════ -->
+        <div class="artifacts-panel" id="artifactsPanel">
+          <div class="ap-header">
+            <span>📁 文件</span>
+            <span class="ap-count" id="apCount">0</span>
+          </div>
+          <div class="ap-list" id="apList">
+            <div class="ap-empty">Agent 生成的文件<br />会自动展示在这里</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ FILE PREVIEW MODAL ═══════════════════════ -->
+    <div
+      class="file-modal-overlay"
+      id="fileModalOverlay"
+      onclick="if (event.target === this) closeFileModal();"
+    >
+      <div class="file-modal" id="fileModal">
+        <div class="file-modal-header">
+          <span class="fm-icon" id="fmIcon">📄</span>
+          <div class="fm-info">
+            <div class="fm-name" id="fmName">file.ext</div>
+            <div class="fm-meta">
+              <span id="fmSize">—</span>
+              <span id="fmType">—</span>
+            </div>
+          </div>
+          <button class="fm-close" onclick="closeFileModal()" title="关闭">
+            ✕
+          </button>
+        </div>
+        <div class="file-modal-body" id="fmBody">
+          <div class="fm-placeholder">加载中...</div>
+        </div>
+        <div class="file-modal-footer">
+          <button class="fm-btn-download" onclick="downloadCurrentFile()">
+            <i class="fa-solid fa-download"></i> 下载
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ═══════════════════════ STATE ═══════════════════════
+      let conversationId = '';
+      let activeConvTitle = '新对话';
+      let thinkingEnabled = localStorage.getItem('thinkingEnabled') !== 'false'; // default true
+      let selectedModel = localStorage.getItem('selectedModel') || ''; // 空则在 renderModelSelect 中默认第一个
+      let thinkingLocked = false; // 当前模型是否锁定深度思考（如 Kimi K2.7 不支持关闭）
+      let modelsInfo = {}; // model name -> 元数据（含 thinking_locked）
+      let selectedFiles = [];
+      let streamAbortController = null; // AbortController for active stream
+
+      // ── marked.js ──
+      marked.setOptions({ breaks: true, gfm: true });
+
+      function toggleThinking() {
+        if (thinkingLocked) return; // 锁定：不允许关闭深度思考
+        thinkingEnabled = !thinkingEnabled;
+        localStorage.setItem(
+          'thinkingEnabled',
+          thinkingEnabled ? 'true' : 'false',
+        );
+        renderThinkingToggle();
+      }
+
+      function renderThinkingToggle() {
+        const el = $('thinkingToggle');
+        const label = $('thinkingLabel');
+        const lock = $('thinkingLock');
+        if (thinkingLocked) {
+          el.classList.add('active', 'locked');
+          label.textContent = '深度思考';
+          el.title = '该模型不支持关闭深度思考';
+          if (lock) lock.style.display = '';
+        } else {
+          el.classList.remove('locked');
+          el.title = '深度思考';
+          if (lock) lock.style.display = 'none';
+          if (thinkingEnabled) {
+            el.classList.add('active');
+            label.textContent = '深度思考';
+          } else {
+            el.classList.remove('active');
+            label.textContent = '快速回答';
+          }
+        }
+      }
+
+      // ── Model selector ─────────────────────────────────────────────────────
+      async function fetchModels() {
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/models`, {
+            headers: headers(),
+          });
+          if (!r.ok) return;
+          const data = await r.json();
+          if (!data.models || data.models.length === 0) return;
+          renderModelSelect(data.models);
+        } catch (e) {
+          console.warn('Failed to fetch models:', e);
+        }
+      }
+
+      function renderModelSelect(models) {
+        const sel = $('modelSelect');
+        sel.innerHTML = '';
+        modelsInfo = {};
+        models.forEach((m) => {
+          modelsInfo[m.name] = m;
+          const opt = document.createElement('option');
+          opt.value = m.name;
+          opt.textContent = m.display_name || m.name;
+          sel.appendChild(opt);
+        });
+        // 默认选中第一个模型，除非已选模型在列表中
+        if (selectedModel && models.some((m) => m.name === selectedModel)) {
+          sel.value = selectedModel;
+        } else {
+          selectedModel = models[0].name;
+          sel.value = selectedModel;
+          localStorage.setItem('selectedModel', selectedModel);
+        }
+        applyModelThinkingLock();
+      }
+
+      function onModelChange(value) {
+        selectedModel = value;
+        localStorage.setItem('selectedModel', value);
+        applyModelThinkingLock();
+      }
+
+      function applyModelThinkingLock() {
+        const m = modelsInfo[selectedModel];
+        thinkingLocked = !!(m && m.thinking_locked);
+        if (thinkingLocked && !thinkingEnabled) {
+          thinkingEnabled = true;
+        }
+        renderThinkingToggle();
+      }
+
+      // ── Textarea auto-resize and keyboard handling ──────────────────────────
+      function onInputKeydown(e) {
+        if (e.key === 'Enter' && !e.shiftKey && !$('sendBtn').disabled) {
+          e.preventDefault();
+          send();
+        }
+      }
+
+      function autoResizeTextarea() {
+        const ta = $('userInput');
+        if (!ta) return;
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
+      }
+
+      function updateSendBtn() {
+        const hasText = $('userInput').value.trim().length > 0;
+        const hasFiles = selectedFiles.length > 0;
+        $('sendBtn').disabled = !hasText && !hasFiles;
+      }
+
+      // ── File management ──
+      function onFilesSelected() {
+        const input = $('fileInput');
+        for (const f of input.files) {
+          // Avoid duplicates by name
+          if (
+            !selectedFiles.some(
+              (sf) => sf.name === f.name && sf.size === f.size,
+            )
+          ) {
+            selectedFiles.push(f);
+          }
+        }
+        input.value = '';
+        renderFileChips();
+        updateSendBtn();
+      }
+
+      function removeFile(index) {
+        selectedFiles.splice(index, 1);
+        renderFileChips();
+        updateSendBtn();
+      }
+
+      function renderFileChips() {
+        const area = $('fileChips');
+        const btn = $('attachBtn');
+        if (selectedFiles.length === 0) {
+          area.innerHTML = '';
+          btn.classList.remove('has-files');
+          return;
+        }
+        btn.classList.add('has-files');
+        area.innerHTML = selectedFiles
+          .map(
+            (f, i) => `
+    <span class="file-chip">
+      📄 ${escHtml(f.name)} <small style="color:var(--text2)">(${formatFileSize(f.size)})</small>
+      <span class="chip-remove" onclick="removeFile(${i})" title="移除">✕</span>
+    </span>
+  `,
+          )
+          .join('');
+      }
+
+      function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      }
+
+      // ── Uploaded-files block handling ──────────────────────────────────────
+      // The UploadsMiddleware prepends an <uploaded_files> XML block to the
+      // user message.  We strip it from displayed text and optionally extract
+      // file metadata for rendering as chips.
+
+      function _stripUploadedFilesBlock(text) {
+        if (!text) return '';
+        // Handle both complete and truncated (title-cut) blocks
+        let cleaned = text;
+        // 1. Complete block: <uploaded_files>...</uploaded_files>
+        cleaned = cleaned.replace(
+          /<uploaded_files>[\s\S]*?<\/uploaded_files>\n*/gi,
+          '',
+        );
+        // 2. Truncated block (title fallback cuts off at 50 chars): <uploaded_files>... (no closing tag)
+        cleaned = cleaned.replace(/<uploaded_files>[\s\S]*/gi, '');
+        return cleaned.trim();
+      }
+
+      // 截断用户消息作为占位标题，与后端 TitleMiddleware._fallback_title 对齐
+      // （去掉 <uploaded_files> 块、trim、超 50 字截断加 …）。
+      function _fallbackTitle(userMessage) {
+        const stripped = _stripUploadedFilesBlock(userMessage || '');
+        if (!stripped) return '';
+        const MAX = 50;
+        if (stripped.length > MAX) return stripped.slice(0, MAX).trimEnd() + '...';
+        return stripped;
+      }
+
+      function _parseUploadedFilesBlock(text) {
+        // Extract file entries from an <uploaded_files> block.
+        // Each entry looks like:
+        //   - filename (size)
+        //     Path: /mnt/user-data/uploads/filename
+        const re = /<uploaded_files>([\s\S]*?)<\/uploaded_files>/i;
+        const m = text.match(re);
+        if (!m) return [];
+        const body = m[1];
+        const files = [];
+        // Match each file entry
+        const entryRe = /- ([^\n(]+) \(([^)]+)\)\n\s+Path: ([^\n]+)/g;
+        let entry;
+        while ((entry = entryRe.exec(body)) !== null) {
+          files.push({
+            filename: entry[1].trim(),
+            size: entry[2].trim(),
+            path: entry[3].trim(),
+          });
+        }
+        return files;
+      }
+
+      function renderUploadedFilesChips(files) {
+        if (!files || files.length === 0) return '';
+        return (
+          `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">` +
+          files
+            .map(
+              (f) =>
+                `<span class="file-chip" style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px;cursor:pointer" onclick="openFileModal('${escJs(f.path)}')" title="点击预览 / 下载">📄 ${escHtml(f.filename)} <small style="color:var(--text2)">(${escHtml(f.size)})</small></span>`,
+            )
+            .join('') +
+          `</div>`
+        );
+      }
+
+      // ═══════════════════════ HELPERS ═══════════════════════
+      const $ = (id) => document.getElementById(id);
+
+      // ── Environment detection ──────────────────────────────────────────────
+      // localhost / 127.0.0.1 → 本地开发环境，后端直连 localhost:8001
+      // 其他域名              → 线上环境，API 和前端同源（K8s Ingress 已路由 /py/api/）
+      function isLocalEnv() {
+        const h = window.location.hostname;
+        return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
+      }
+
+      function getDefaultBaseUrl() {
+        if (isLocalEnv()) {
+          return 'http://localhost:8001';
+        }
+        // 线上：使用同源地址（前端 https://ftdream.oa.cmbchina.biz → API 同域 /py/api/）
+        return window.location.origin;
+      }
+
+      // 线上环境隐藏连接 / Auth (JWT) 区域
+      if (!isLocalEnv()) {
+        ['connSection', 'authSection'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = 'none';
+        });
+      }
+
+      function baseUrl() {
+        const v = $('baseUrl').value.trim().replace(/\/+$/, '');
+        return v || getDefaultBaseUrl();
+      }
+
+      const TOKEN_KEY = 'token';
+      const CONV_ID_KEY = 'skillhub_active_conv';
+
+      function getToken() {
+        return localStorage.getItem(TOKEN_KEY) || '';
+      }
+      function setToken(t) {
+        localStorage.setItem(TOKEN_KEY, t);
+        $('token').value = t;
+      }
+const token = () => getToken();
+      const headers = () => {
+        const h = { 'Content-Type': 'application/json' };
+        const t = token();
+        if (t) h['Authorization'] = `Bearer ${t}`;
+        return h;
+      };
+
+      function renderMarkdown(content) {
+        return marked.parse(content);
+      }
+
+      function escHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      function escJs(s) {
+        // Escape for use inside a JS single-quoted string inside an HTML attribute
+        return escHtml(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      }
+
+      function formatTime(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        const now = new Date();
+        const diff = now - d;
+        if (diff < 60000) return '刚刚';
+        if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+        if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+
+      function formatTokens(n) {
+        if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+        if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+        return String(n);
+      }
+
+      function calcCacheHitPct(cacheRead, totalTokens) {
+        if (!totalTokens || !cacheRead) return 0;
+        return Math.round((cacheRead / totalTokens) * 100);
+      }
+
+      function formatTokenWithCache(n, cacheRead) {
+        const formatted = formatTokens(n || 0);
+        if (cacheRead && n) {
+          const pct = calcCacheHitPct(cacheRead, n);
+          return `${formatted} · ${pct}%💾`;
+        }
+        return formatted;
+      }
+
+      // ═══════════════════════ CONVERSATION LIST ═══════════════
+      async function loadConversations() {
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/conversations`, {
+            headers: headers(),
+          });
+          if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+          const data = await r.json();
+          const list = data.conversations || [];
+          renderConvList(list);
+          syncStatusPolling(list);
+        } catch (e) {
+          $('convList').innerHTML =
+            `<div class="conv-empty">⚠️ 加载失败<br><small>${escHtml(e.message)}</small></div>`;
+        }
+      }
+
+      // ── 生成中状态轮询 ────────────────────────────────────────────────────
+      // 后端在后台继续执行时（用户切走、刷新后残留的 running 等），前端不再接收
+      // SSE run_end，侧栏会一直停在「生成中」脉冲。这里在有会话处于
+      // running/active 时以 1.5s 间隔轮询列表，待全部终态后自动停止。
+      let _statusPollTimer = null;
+      const STATUS_POLL_MS = 1500;
+
+      function syncStatusPolling(list) {
+        // 有会话处于 running/active 时轮询；另外后台标题异步生成尚未落地
+        // （title_pending）时也继续轮询，让侧栏在回合结束后仍能拿到 AI 标题。
+        const generating = list.some(
+          (c) =>
+            c.status === 'running' ||
+            c.status === 'active' ||
+            c.title_pending === true,
+        );
+        if (generating) {
+          if (!_statusPollTimer) {
+            _statusPollTimer = setInterval(pollStatus, STATUS_POLL_MS);
+          }
+        } else if (_statusPollTimer) {
+          clearInterval(_statusPollTimer);
+          _statusPollTimer = null;
+        }
+      }
+
+      async function pollStatus() {
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/conversations`, {
+            headers: headers(),
+          });
+          if (!r.ok) return;
+          const data = await r.json();
+          const list = data.conversations || [];
+          renderConvList(list);
+          syncStatusPolling(list);
+        } catch (e) {
+          // 瞬时网络错误——保持轮询，不覆盖侧栏为错误态。
+        }
+      }
+
+      function renderConvList(list) {
+        if (list.length === 0) {
+          $('convList').innerHTML =
+            '<div class="conv-empty">暂无对话<br><small>发送消息开始</small></div>';
+          return;
+        }
+        $('convList').innerHTML = list
+          .map((c) => {
+            const cleanTitle = _stripUploadedFilesBlock(c.title || '');
+            const tokenDisplay = formatTokenWithCache(
+              c.total_tokens || 0,
+              c.cache_read || 0,
+            );
+            return `
+    <div class="conv-item${c.conversation_id === conversationId ? ' active' : ''}" data-cid="${escHtml(c.conversation_id)}" data-tokens="${c.total_tokens || 0}" data-cache-read="${c.cache_read || 0}" onclick="selectConversation('${escJs(c.conversation_id)}', '${escJs(cleanTitle)}', ${c.total_tokens || 0}, ${c.cache_read || 0})">
+      <div class="conv-title">${escHtml(cleanTitle || '新对话')}</div>
+      <div class="conv-meta">
+        <span><span class="conv-status ${convStatusClass(c.status)}"></span>${tokenDisplay}</span>
+        <span>${formatTime(c.updated_at)}</span>
+        <button class="btn-icon btn-delete" onclick="event.stopPropagation();deleteConversation('${escJs(c.conversation_id)}')" title="删除对话"><i class="fa-solid fa-trash-can"></i></button>
+      </div>
+    </div>
+  `;
+          })
+          .join('');
+
+        // Sync toolbar badge and title for the active conversation
+        if (conversationId) {
+          const active = list.find((c) => c.conversation_id === conversationId);
+          if (active) {
+            $('tokenCount').textContent = formatTokenWithCache(
+              active.total_tokens || 0,
+              active.cache_read || 0,
+            );
+            $('convTitle').textContent =
+              _stripUploadedFilesBlock(active.title || '') || activeConvTitle;
+          } else {
+            // Stored conversation was deleted — clear it
+            sessionStorage.removeItem(CONV_ID_KEY);
+            conversationId = '';
+            $('tokenCount').textContent = '0 tokens';
+          }
+        }
+      }
+
+      function setActiveConv(cid) {
+        document.querySelectorAll('.conv-item').forEach((el) => {
+          el.classList.toggle('active', el.dataset.cid === cid);
+        });
+      }
+
+      // 状态点归一化：后端 create 置 "active"、回合开始置 "running"，两者都表示
+      // 「生成中/未完成」，统一显示脉冲点；终态（completed/cancelled/error/step_limit）
+      // 保持各自颜色。
+      function convStatusClass(status) {
+        if (status === 'active') return 'running';
+        return status || 'completed';
+      }
+
+      // 就地更新侧栏某会话的标题文本（不重新拉取列表），用于新会话占位标题即时显示。
+      function updateConvListItemTitle(cid, title) {
+        const item = document.querySelector(
+          `.conv-item[data-cid="${cid.replace(/"/g, '\\"')}"]`,
+        );
+        if (!item) return;
+        const titleEl = item.querySelector('.conv-title');
+        if (titleEl) titleEl.textContent = title || '新对话';
+      }
+
+      async function selectConversation(cid, title, tokens, cacheRead) {
+        conversationId = cid;
+        sessionStorage.setItem(CONV_ID_KEY, cid);
+        activeConvTitle = title || '新对话';
+        $('convTitle').textContent = activeConvTitle;
+        $('tokenCount').textContent = formatTokenWithCache(
+          tokens || 0,
+          cacheRead || 0,
+        );
+        setActiveConv(cid);
+
+        // Detach from any active stream (don't abort — let it finish on its
+        // own).  Switching conversation clears the in-progress "生成中"
+        // status bar and resets the input/send-button state so the new
+        // conversation starts clean instead of leaving a stale spinner.
+        streamAbortController = null;
+        document.querySelectorAll('.gen-status').forEach((el) => el.remove());
+        exitStreamingMode();
+        const input = $('userInput');
+        if (input) {
+          input.disabled = false;
+        }
+
+        showInputArea();
+
+        // Load messages
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/chat/messages/${cid}`, {
+            headers: headers(),
+          });
+          if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+          const data = await r.json();
+          clearMessages();
+          // Group consecutive non-user messages into one assistant bubble
+          // DB order is now: user → assistant → tool → assistant → tool → … (chronological)
+          let turnGroup = [];
+          function _flushTurn() {
+            if (turnGroup.length === 0) return;
+            const div = document.createElement('div');
+            div.className = 'msg assistant';
+            for (const m of turnGroup) {
+              if (m.role === 'assistant' && m.event_type === 'reasoning') {
+                // Render reasoning content as a thinking card
+                const rDiv = document.createElement('div');
+                rDiv.className = 'tool-card';
+                rDiv.classList.add('expanded');
+                rDiv.innerHTML = `<div class="tc-header" onclick="this.parentElement.classList.toggle('expanded')"><span style="color:var(--text2);flex:1">💭 思考</span><span class="tc-arrow">▸</span></div><div class="tc-body"><pre style="color:var(--text2);margin:0;white-space:pre-wrap;font-size:12px">${escHtml(m.content || '')}</pre></div>`;
+                div.appendChild(rDiv);
+              } else if (m.role === 'assistant' && m.event_type === 'step_limit') {
+                // Recoverable interruption (step limit) — render as a hint,
+                // not a hard error, so the user knows they can continue.
+                const hintDiv = document.createElement('div');
+                hintDiv.className = 'hint-msg';
+                hintDiv.innerHTML = `<span class="hint-icon">💡</span><span>${escHtml(m.content || '任务已暂停，可继续追问')}</span>`;
+                div.appendChild(hintDiv);
+              } else if (m.role === 'assistant' && m.event_type === 'error') {
+                // Render error message with distinct styling
+                const errDiv = document.createElement('div');
+                errDiv.className = 'error-msg';
+                errDiv.innerHTML = `<span class="error-icon">❌</span><span>${escHtml(m.content || '未知错误')}</span>`;
+                div.appendChild(errDiv);
+              } else if (m.role === 'assistant') {
+                const seg = document.createElement('div');
+                seg.className = 'msg-body';
+                seg.innerHTML = renderAssistantContent(m.content || '');
+                div.appendChild(seg);
+              } else if (m.role === 'tool') {
+                div.appendChild(
+                  createToolCard(
+                    m.tool_name || 'unknown',
+                    m.tool_input || '',
+                    m.tool_output || '',
+                    false, // isPending
+                    m.is_subagent === true, // isSubagent
+                    m.description || '', // description
+                    m.duration_ms ? m.duration_ms / 1000 : null, // elapsed (convert ms→s)
+                  ),
+                );
+              }
+            }
+            $('messages').appendChild(div);
+            turnGroup = [];
+          }
+          for (const m of data.messages) {
+            if (m.role === 'user') {
+              _flushTurn();
+              addMsg('user', m.content, m.file_metadata);
+            } else {
+              turnGroup.push(m);
+            }
+          }
+          _flushTurn();
+          refreshFileTree();
+        } catch (e) {
+          addSysMsg('❌ 加载消息失败: ' + e.message);
+        }
+      }
+
+      function newConversation() {
+        // Detach from any active stream (don't abort — let it finish on its own)
+        streamAbortController = null;
+        conversationId = '';
+        sessionStorage.removeItem(CONV_ID_KEY);
+        activeConvTitle = '新对话';
+        $('convTitle').textContent = activeConvTitle;
+        $('tokenCount').textContent = '0 tokens';
+        setActiveConv('');
+        clearMessages();
+        clearFileTree();
+        // Remove any lingering "生成中" status bar immediately.
+        document.querySelectorAll('.gen-status').forEach((el) => el.remove());
+        selectedFiles = [];
+        renderFileChips();
+        renderThinkingToggle(); // Re-enable toggle for new conversation
+        // Reset input area state
+        const input = $('userInput');
+        if (input) {
+          input.value = '';
+          input.disabled = false;
+          autoResizeTextarea();
+        }
+        exitStreamingMode();
+        const welcome = document.createElement('div');
+        welcome.className = 'msg welcome';
+        welcome.innerHTML =
+          '<h3>👋 爱共创AIGC Agent</h3><p>选择左侧对话或开始新对话</p>';
+        $('messages').appendChild(welcome);
+        showInputArea();
+      }
+
+      async function deleteConversation(cid) {
+        if (!confirm('确定要删除这个对话吗？所有消息将被永久删除。')) return;
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/conversations/${cid}`, {
+            method: 'DELETE',
+            headers: headers(),
+          });
+          if (!r.ok) {
+            const err = await r.text();
+            throw new Error(`${r.status} ${r.statusText}: ${err}`);
+          }
+          // If the deleted conversation was active, reset
+          if (conversationId === cid) {
+            newConversation();
+          }
+          // Refresh the list
+          loadConversations();
+        } catch (e) {
+          addSysMsg('❌ 删除失败: ' + e.message);
+        }
+      }
+
+      // ═══════════════════════ MESSAGES ═══════════════════════
+      function addMsg(role, content, fileMeta) {
+        // Remove welcome message if present
+        const w = $('messages').querySelector('.msg.welcome');
+        if (w) w.remove();
+
+        const div = document.createElement('div');
+        div.className = `msg ${role}`;
+        if (role === 'user') {
+          div.innerHTML = _renderUserMessage(content, fileMeta);
+        } else {
+          div.innerHTML =
+            role === 'assistant'
+              ? renderAssistantContent(content)
+              : renderMarkdown(content);
+        }
+        $('messages').appendChild(div);
+        $('messages').scrollTop = $('messages').scrollHeight;
+
+        return div;
+      }
+
+      function _renderUserMessage(content, fileMeta) {
+        let html = '';
+        const files = _parseFileMeta(fileMeta);
+        if (files.length > 0) {
+          html += _renderFileChipsHtml(files);
+        }
+        html += renderMarkdown(content || '');
+        return html;
+      }
+
+      function _parseFileMeta(fileMeta) {
+        if (!fileMeta) return [];
+        try {
+          if (typeof fileMeta === 'string') return JSON.parse(fileMeta);
+          return fileMeta; // already parsed
+        } catch {
+          return [];
+        }
+      }
+
+      function _renderFileChipsHtml(files) {
+        return (
+          `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">` +
+          files
+            .map((f) => {
+              const fname = f.filename || f.name || '';
+              const fsize = f.size ? formatFileSize(f.size) : '';
+              return `<span class="file-chip" style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px">📄 ${escHtml(fname)} ${fsize ? `<small style="color:var(--text2)">(${fsize})</small>` : ''}</span>`;
+            })
+            .join('') +
+          `</div>`
+        );
+      }
+
+      function addSysMsg(text) {
+        const w = $('messages').querySelector('.msg.welcome');
+        if (w) w.remove();
+        const div = document.createElement('div');
+        div.className = 'msg system';
+        div.textContent = text;
+        $('messages').appendChild(div);
+        $('messages').scrollTop = $('messages').scrollHeight;
+      }
+
+      function clearMessages() {
+        $('messages').innerHTML = '';
+        clearFileTree();
+      }
+
+      // ── Tool card rendering ─────────────────────────────────────────────────
+
+      function createToolCard(
+        name,
+        input,
+        output,
+        isPending,
+        isSubagent,
+        description,
+        elapsedSeconds,
+        error,
+      ) {
+        const card = document.createElement('div');
+        card.className = 'tool-card' + (isPending ? '' : ' expanded');
+
+        // For subagent task tools, use description from backend or extract from input JSON
+        let displayName = name;
+        if (isSubagent) {
+          if (description) {
+            displayName = description;
+          } else if (input) {
+            try {
+              const parsed = JSON.parse(input);
+              if (parsed.description) {
+                displayName = parsed.description;
+              }
+            } catch {}
+          }
+        }
+        const shortInput =
+          (input || '').length > 500
+            ? (input || '').substring(0, 500) + '…'
+            : input || '';
+        const shortOutput =
+          (output || '').length > 1000
+            ? (output || '').substring(0, 1000) + '…'
+            : output || '';
+
+        // ── Error indicator ─────────────────────────────────────────
+        const hasError = !!error;
+        const headerStyle = hasError ? 'color:var(--red)' : '';
+        const errorHtml = hasError
+          ? `<div class="tc-section"><div class="tc-label err">❌ 错误</div><pre style="color:var(--red)">${escHtml(error.substring(0, 1000))}</pre></div>`
+          : '';
+
+        const icon = isSubagent ? '🤖' : '🔧';
+        const label = isSubagent
+          ? '委派子代理：' + escHtml(displayName)
+          : escHtml(displayName);
+        const pendingLabel = isSubagent ? '⏳ 子代理执行中…' : '⏳ 等待结果…';
+
+        // Build elapsed-time snippet for completed subagent cards
+        let elapsedHtml = '';
+        if (
+          !isPending &&
+          isSubagent &&
+          elapsedSeconds !== undefined &&
+          elapsedSeconds !== null &&
+          elapsedSeconds > 0
+        ) {
+          const mins = Math.floor(elapsedSeconds / 60);
+          const secs = Math.floor(elapsedSeconds % 60);
+          const timeStr = mins > 0 ? `${mins}分${secs}秒` : `${secs}秒`;
+          elapsedHtml = `<div class="tc-section"><div class="tc-label" style="color:var(--text2)">⏱ 耗时 ${timeStr}</div></div>`;
+        }
+
+        card.innerHTML = `<div class="tc-header" onclick="this.parentElement.classList.toggle('expanded')">
+      <span class="tc-icon">${hasError ? '⚠️' : icon}</span>
+      <span class="tc-name" style="${headerStyle}">${hasError ? '错误：' + escHtml(displayName) : label}</span>
+      <span class="tc-arrow">▸</span>
+    </div>
+    <div class="tc-body">
+      ${errorHtml}
+      ${input ? `<div class="tc-section"><div class="tc-label in">📥 输入</div><pre><code>${escHtml(shortInput)}</code></pre></div>` : ''}
+      ${
+        isPending
+          ? `<div class="tc-section"><div class="tc-pending">${pendingLabel}</div></div>`
+          : output
+            ? `<div class="tc-section"><div class="tc-label out">📤 输出</div><pre><code>${escHtml(shortOutput)}</code></pre></div>`
+            : ''
+      }
+      ${elapsedHtml}
+    </div>`;
+        return card;
+      }
+
+      // ═══════════════════════ DEBUG ═══════════════════════
+      function toggleDebug() {
+        const body = $('debugBody');
+        const toggle = $('debugToggle');
+        body.classList.toggle('open');
+        toggle.classList.toggle('open');
+      }
+
+      async function checkHealth() {
+        $('healthStatus').className = 'status-dot idle';
+        $('healthText').textContent = '检测中...';
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/health`);
+          const data = await r.json();
+          $('healthStatus').className = 'status-dot ok';
+          $('healthText').textContent =
+            `OK · ${data.model || '?'} · v${data.version || '?'}`;
+        } catch (e) {
+          $('healthStatus').className = 'status-dot err';
+          $('healthText').textContent = '连接失败: ' + e.message;
+        }
+      }
+
+      function getSkillIcon(name) {
+        const map = {
+          academic: '📚',
+          paper: '📄',
+          review: '🔍',
+          bootstrap: '🧬',
+          soul: '✨',
+          chart: '📊',
+          visualization: '📈',
+          data: '📊',
+          analysis: '📈',
+          claude: '🤖',
+          deerflow: '🦌',
+          code: '💻',
+          documentation: '📝',
+          consulting: '💼',
+          research: '🔬',
+          design: '🎨',
+          frontend: '🖥️',
+          image: '🖼️',
+          generation: '⚡',
+          newsletter: '📰',
+          podcast: '🎙️',
+          ppt: '📽️',
+          presentation: '📽️',
+          skill: '🛠️',
+          creator: '🔧',
+          surprise: '🎁',
+          literature: '📖',
+          systematic: '📋',
+          vercel: '🚀',
+          deploy: '🚀',
+          web: '🌐',
+          video: '🎬',
+          find: '🔎',
+          github: '🐙',
+        };
+        for (const [key, icon] of Object.entries(map)) {
+          if (name.includes(key)) return icon;
+        }
+        return '🔧';
+      }
+
+      // ═══════════════════════ SKILLS (PR4) ═══════════════════════
+      let skillsTab = 'mine'; // 'mine' | 'market' | 'review'
+      let currentRole = 'user'; // 当前用户角色，来自 /auth/verify
+
+      function authHeaders() {
+        // 不带 Content-Type（供 multipart 上传使用，浏览器自动补 boundary）
+        const h = {};
+        const t = token();
+        if (t) h['Authorization'] = `Bearer ${t}`;
+        return h;
+      }
+
+      function skillStatusMeta(status) {
+        const map = {
+          draft: { label: '草稿', cls: 'draft' },
+          pending: { label: '待审核', cls: 'pending' },
+          approved: { label: '已通过', cls: 'approved' },
+          rejected: { label: '已拒绝', cls: 'rejected' },
+        };
+        return map[status] || { label: status || '未知', cls: 'draft' };
+      }
+
+      function showSkills(tab) {
+        skillsTab = tab || skillsTab || 'mine';
+        // 清空会话状态，避免技能面板被追加到历史对话下方
+        newConversation();
+        const w = $('messages').querySelector('.msg.welcome');
+        if (w) w.remove();
+
+        const container = document.createElement('div');
+        container.className = 'msg system';
+        container.style.maxWidth = '100%';
+        container.innerHTML = `
+          <div class="skills-panel">
+            <div class="skills-tabs">
+              <button class="skills-tab ${skillsTab === 'mine' ? 'active' : ''}" onclick="showSkills('mine')">🛠️ 我的技能</button>
+              <button class="skills-tab ${skillsTab === 'market' ? 'active' : ''}" onclick="showSkills('market')">🏪 技能广场</button>
+              ${currentRole === 'admin' ? `<button class="skills-tab ${skillsTab === 'review' ? 'active' : ''}" onclick="showSkills('review')">🔍 审核</button>` : ''}
+            </div>
+            <div class="skills-body" id="skillsBody">
+              <div class="skills-loading">加载中...</div>
+            </div>
+          </div>
+        `;
+        $('messages').appendChild(container);
+        $('messages').scrollTop = $('messages').scrollHeight;
+        $('input-area').classList.add('hidden');
+        refreshSkillsBody();
+      }
+
+      function refreshSkillsBody() {
+        if (skillsTab === 'market') return renderMarketplace();
+        if (skillsTab === 'review') return renderReviewQueue();
+        return renderMySkills();
+      }
+
+      async function renderMySkills() {
+        const body = $('skillsBody');
+        if (!body) return;
+        body.innerHTML = '<div class="skills-loading">加载中...</div>';
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/skills/available`, { headers: headers() });
+          if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${await r.text()}`);
+          const items = await r.json();
+          const builtin = items.filter((s) => s.origin === 'builtin');
+          const mine = items.filter((s) => s.origin === 'mine');
+          const added = items.filter((s) => s.origin === 'added');
+          body.innerHTML = `
+            <div class="skills-section">
+              <div class="skills-section-title">🏛️ 官方内置 <span class="sh-count">${builtin.length}</span></div>
+              <div class="skills-grid">${builtin.map(renderBuiltinCard).join('') || '<div class="skills-empty">暂无内置技能</div>'}</div>
+            </div>
+            <div class="skills-section">
+              <div class="skills-section-title">✍️ 我创建的 <span class="sh-count">${mine.length}</span></div>
+              ${mine.length ? `<div class="skills-grid">${mine.map(renderMineCard).join('')}</div>` : '<div class="skills-empty">还没有创建技能，可到「技能广场」上传 .zip / .skill / .md</div>'}
+            </div>
+            <div class="skills-section">
+              <div class="skills-section-title">➕ 我已添加 <span class="sh-count">${added.length}</span></div>
+              ${added.length ? `<div class="skills-grid">${added.map(renderAddedCard).join('')}</div>` : '<div class="skills-empty">还没有添加广场技能</div>'}
+            </div>
+          `;
+        } catch (e) {
+          body.innerHTML = `<div class="skills-empty">❌ 加载失败: ${escHtml(e.message)}</div>`;
+        }
+      }
+
+      async function renderMarketplace() {
+        const body = $('skillsBody');
+        if (!body) return;
+        body.innerHTML = '<div class="skills-loading">加载中...</div>';
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/skills/marketplace`, { headers: headers() });
+          if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${await r.text()}`);
+          const skills = await r.json();
+          body.innerHTML = `
+            <div class="skills-section">
+              <div class="skills-section-title">⬆️ 上传新技能</div>
+              <div class="skills-upload-form">
+                <input type="file" id="skillFileInput" accept=".zip,.skill,.md" />
+                <input type="text" id="skillDisplayName" placeholder="展示名（可选，默认取 name）" />
+                <input type="text" id="skillDescription" placeholder="技能描述（可选，默认取 description）" />
+                <button class="sc-btn sc-btn-primary" onclick="uploadSkill()">上传</button>
+              </div>
+              <div class="skills-empty" style="padding:2px 0 0">支持 .zip 压缩包、.skill 技能包（zip 或 Markdown 均可）、或 .md 单文件。一个 zip 归档只能包含一个技能，多个技能请分开打包。上传后保存为「草稿」，在「我的技能」中发布，经管理员审核后进入广场。</div>
+            </div>
+            <div class="skills-section">
+              <div class="skills-section-title">🏪 技能广场 <span class="sh-count">${skills.length}</span></div>
+              ${skills.length ? `<div class="skills-grid">${skills.map(renderMarketCard).join('')}</div>` : '<div class="skills-empty">广场暂无已审核技能</div>'}
+            </div>
+          `;
+        } catch (e) {
+          body.innerHTML = `<div class="skills-empty">❌ 加载失败: ${escHtml(e.message)}</div>`;
+        }
+      }
+
+      async function renderReviewQueue() {
+        const body = $('skillsBody');
+        if (!body) return;
+        body.innerHTML = '<div class="skills-loading">加载中...</div>';
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/skills/pending`, { headers: headers() });
+          if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${await r.text()}`);
+          const skills = await r.json();
+          body.innerHTML = `
+            <div class="skills-section">
+              <div class="skills-section-title">🔍 待审核 <span class="sh-count">${skills.length}</span></div>
+              ${skills.length ? `<div class="skills-grid">${skills.map(renderPendingCard).join('')}</div>` : '<div class="skills-empty">没有待审核的技能</div>'}
+            </div>
+          `;
+        } catch (e) {
+          body.innerHTML = `<div class="skills-empty">❌ 加载失败: ${escHtml(e.message)}</div>`;
+        }
+      }
+
+      function renderPendingCard(s) {
+        return `<div class="skill-card">
+          <div class="sc-top">
+            <span class="sc-icon">${getSkillIcon(s.name)}</span>
+            <span class="sc-name" title="${escHtml(s.display_name || s.name)}">${escHtml(s.display_name || s.name)}</span>
+            <span class="sc-badge pending">待审核</span>
+          </div>
+          <div class="sc-desc" title="${escHtml(s.description || '')}">${escHtml(s.description || '暂无描述')}</div>
+          <div class="sc-meta">作者: ${escHtml(s.author_name || s.author_id || '未知')}${s.version ? ` · v${escHtml(s.version)}` : ''}</div>
+          <div class="sc-actions">
+            <button class="sc-btn sc-btn-primary" onclick="reviewSkill('${escJs(s.name)}','approve')">通过</button>
+            <button class="sc-btn sc-btn-danger" onclick="reviewSkill('${escJs(s.name)}','reject')">驳回</button>
+          </div>
+        </div>`;
+      }
+
+      async function reviewSkill(name, action) {
+        const body = { action };
+        if (action === 'reject') {
+          const reason = prompt('请输入驳回原因（作者可见）：');
+          if (reason === null) return; // 取消
+          if (!reason.trim()) {
+            alert('驳回原因不能为空');
+            return;
+          }
+          body.reason = reason.trim();
+        }
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/skills/${encodeURIComponent(name)}/review`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(body),
+          });
+          if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${await r.text()}`);
+          renderReviewQueue();
+        } catch (e) {
+          alert(`❌ 审核失败: ${e.message}`);
+        }
+      }
+
+      function renderBuiltinCard(s) {
+        return `<div class="skill-card">
+          <div class="sc-top">
+            <span class="sc-icon">${getSkillIcon(s.name)}</span>
+            <span class="sc-name" title="${escHtml(s.name)}">${escHtml(s.name)}</span>
+            <span class="sc-badge builtin">内置</span>
+          </div>
+          <div class="sc-desc" title="${escHtml(s.description || '')}">${escHtml(s.description || '暂无描述')}</div>
+        </div>`;
+      }
+
+      function renderMineCard(s) {
+        const meta = skillStatusMeta(s.review_status);
+        const canPublish = s.review_status === 'draft' || s.review_status === 'rejected';
+        const publishLabel = s.review_status === 'rejected' ? '重新提交' : '发布';
+        const rejectNote = s.review_status === 'rejected' && s.review_note
+          ? `<div class="sc-note">💬 驳回原因: ${escHtml(s.review_note)}</div>`
+          : '';
+        return `<div class="skill-card">
+          <div class="sc-top">
+            <span class="sc-icon">${getSkillIcon(s.name)}</span>
+            <span class="sc-name" title="${escHtml(s.display_name || s.name)}">${escHtml(s.display_name || s.name)}</span>
+            <span class="sc-badge ${meta.cls}">${meta.label}</span>
+          </div>
+          <div class="sc-desc" title="${escHtml(s.description || '')}">${escHtml(s.description || '暂无描述')}</div>
+          ${rejectNote}
+          <div class="sc-actions">
+            ${canPublish ? `<button class="sc-btn sc-btn-primary" onclick="publishSkill('${escJs(s.name)}')">${publishLabel}</button>` : ''}
+            <button class="sc-btn sc-btn-danger" onclick="deleteSkill('${escJs(s.name)}')">删除</button>
+          </div>
+        </div>`;
+      }
+
+      function renderAddedCard(s) {
+        return `<div class="skill-card">
+          <div class="sc-top">
+            <span class="sc-icon">${getSkillIcon(s.name)}</span>
+            <span class="sc-name" title="${escHtml(s.display_name || s.name)}">${escHtml(s.display_name || s.name)}</span>
+          </div>
+          <div class="sc-desc" title="${escHtml(s.description || '')}">${escHtml(s.description || '暂无描述')}</div>
+          <div class="sc-actions">
+            <button class="sc-btn sc-btn-danger" onclick="removeAddedSkill('${escJs(s.name)}')">取消添加</button>
+          </div>
+        </div>`;
+      }
+
+      function renderMarketCard(s) {
+        return `<div class="skill-card">
+          <div class="sc-top">
+            <span class="sc-icon">${getSkillIcon(s.name)}</span>
+            <span class="sc-name" title="${escHtml(s.display_name || s.name)}">${escHtml(s.display_name || s.name)}</span>
+          </div>
+          <div class="sc-desc" title="${escHtml(s.description || '')}">${escHtml(s.description || '暂无描述')}</div>
+          <div class="sc-meta">作者: ${escHtml(s.author_name || '未知')}${s.version ? ` · v${escHtml(s.version)}` : ''}</div>
+          <div class="sc-actions">
+            ${s.added
+              ? `<button class="sc-btn sc-btn-danger" onclick="removeAddedSkill('${escJs(s.name)}')">已添加 · 取消</button>`
+              : `<button class="sc-btn sc-btn-primary" onclick="addSkill('${escJs(s.name)}')">添加</button>`}
+          </div>
+        </div>`;
+      }
+
+      async function uploadSkill() {
+        const fileInput = $('skillFileInput');
+        const file = fileInput && fileInput.files[0];
+        if (!file) {
+          alert('请先选择 .zip / .skill / .md 文件');
+          return;
+        }
+        const displayName = ($('skillDisplayName') ? $('skillDisplayName').value : '').trim();
+        const description = ($('skillDescription') ? $('skillDescription').value : '').trim();
+        const fd = new FormData();
+        fd.append('file', file);
+        if (displayName) fd.append('display_name', displayName);
+        if (description) fd.append('description', description);
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/skills`, {
+            method: 'POST',
+            headers: authHeaders(),
+            body: fd,
+          });
+          const data = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(data.detail || `${r.status} ${r.statusText}`);
+          alert(`✅ 上传成功：「${data.skill_name}」已保存为草稿，可在「我的技能」中发布`);
+          showSkills('mine');
+        } catch (e) {
+          alert(`❌ 上传失败: ${e.message}`);
+        }
+      }
+
+      async function publishSkill(name) {
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/skills/${encodeURIComponent(name)}/publish`, { method: 'POST', headers: headers() });
+          if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${await r.text()}`);
+          renderMySkills();
+        } catch (e) {
+          alert(`❌ 发布失败: ${e.message}`);
+        }
+      }
+
+      async function deleteSkill(name) {
+        if (!confirm(`确定删除技能「${name}」？技能文件将从存储中永久删除，且不可恢复。`)) return;
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/skills/${encodeURIComponent(name)}`, { method: 'DELETE', headers: headers() });
+          if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${await r.text()}`);
+          renderMySkills();
+        } catch (e) {
+          alert(`❌ 删除失败: ${e.message}`);
+        }
+      }
+
+      async function addSkill(name) {
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/skills/${encodeURIComponent(name)}/add`, { method: 'POST', headers: headers() });
+          if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${await r.text()}`);
+          renderMarketplace();
+        } catch (e) {
+          alert(`❌ 添加失败: ${e.message}`);
+        }
+      }
+
+      async function removeAddedSkill(name) {
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/skills/${encodeURIComponent(name)}/add`, { method: 'DELETE', headers: headers() });
+          if (!r.ok) throw new Error(`${r.status} ${r.statusText}: ${await r.text()}`);
+          refreshSkillsBody();
+        } catch (e) {
+          alert(`❌ 取消添加失败: ${e.message}`);
+        }
+      }
+
+      function showInputArea() {
+        $('input-area').classList.remove('hidden');
+      }
+
+      // ═══════════════════════ SEND ═══════════════════════
+      async function send() {
+        // If a stream is active, stop it instead
+        if (streamAbortController) {
+          stopStream();
+          return;
+        }
+
+        const input = $('userInput');
+        const msg = input.value.trim();
+        if (!msg) {
+          // 纯文件发送（无文字）：无法单独发起一轮对话。清空待发文件，
+          // 避免附件一直残留在输入区，并给出提示。
+          if (selectedFiles.length > 0) {
+            selectedFiles = [];
+            renderFileChips();
+            updateSendBtn();
+            addSysMsg('💡 仅上传了文件，请输入文字后再发送。');
+          }
+          return;
+        }
+
+        // Snapshot this turn's files + metadata up front. We create the
+        // conversation WITHOUT files first (fast — just a DB insert), then
+        // upload files to the existing conversation via /{id}/files. This
+        // decouples the slow upload (local write + remote storage) from
+        // conversation creation, so the user message renders immediately and
+        // the UI no longer freezes behind a long POST /conversations.
+        const filesToUpload = selectedFiles.slice();
+        const fileMeta =
+          filesToUpload.length > 0
+            ? JSON.stringify(
+                filesToUpload.map((f) => ({ filename: f.name, size: f.size })),
+              )
+            : null;
+
+        input.value = '';
+        autoResizeTextarea();
+        updateSendBtn();
+        input.disabled = true;
+
+        // ── 1. Ensure a conversation exists (no files → fast) ───────────────
+        if (!conversationId) {
+          try {
+            const h = {};
+            if (token()) h['Authorization'] = `Bearer ${token()}`;
+            const r = await fetch(`${baseUrl()}/py/api/conversations`, {
+              method: 'POST',
+              headers: h,
+            });
+            if (!r.ok) {
+              const err = await r.text();
+              throw new Error(`${r.status} ${r.statusText}: ${err}`);
+            }
+            const data = await r.json();
+            conversationId = data.conversation_id;
+            // 占位标题：发消息那一刻即用截断的用户消息，随后被 AI 标题替换
+            activeConvTitle = _fallbackTitle(msg) || '新对话';
+            $('convTitle').textContent = activeConvTitle;
+            setActiveConv(conversationId);
+            // 立即让新会话浮到列表顶部（后端此刻 status=active，前端映射为 running 脉冲）
+            loadConversations().then(() =>
+              updateConvListItemTitle(conversationId, activeConvTitle),
+            );
+          } catch (e) {
+            addSysMsg('❌ 创建会话失败: ' + e.message);
+            input.disabled = false;
+            updateSendBtn();
+            input.focus();
+            return;
+          }
+        }
+
+        // Clear the input-area chips now — files are captured in `filesToUpload`
+        // and `fileMeta`; they'll be re-rendered inside the user message bubble.
+        selectedFiles = [];
+        renderFileChips();
+
+        // ── 2. Show the user message immediately ─────────────────────────────
+        addMsg('user', msg, fileMeta);
+
+        // ── 3. Upload files (agent needs them on disk before the stream) ─────
+        if (filesToUpload.length > 0) {
+          _setUploadStatus('正在上传附件…');
+          try {
+            const h = {};
+            if (token()) h['Authorization'] = `Bearer ${token()}`;
+            const formData = new FormData();
+            for (const f of filesToUpload) {
+              formData.append('files', f);
+            }
+            const r = await fetch(
+              `${baseUrl()}/py/api/conversations/${conversationId}/files`,
+              { method: 'POST', headers: h, body: formData },
+            );
+            if (!r.ok) {
+              const err = await r.text();
+              throw new Error(`${r.status} ${r.statusText}: ${err}`);
+            }
+          } catch (e) {
+            addSysMsg('⚠️ 附件上传失败: ' + e.message);
+          }
+          _removeUploadStatus();
+        }
+
+        // ── 4. Start the stream (button flips to 「停止」 only now) ──────────
+        enterStreamingMode();
+        await sendStream(msg, thinkingEnabled, fileMeta);
+      }
+
+      // ── Upload status bar (mirrors the in-stream「生成中」bar) ─────────────
+      // Shown during the file-upload step so the page never looks frozen while
+      // a large attachment is written to local disk + remote storage.
+      let _uploadStatusEl = null;
+      function _setUploadStatus(text) {
+        if (!_uploadStatusEl || !_uploadStatusEl.parentNode) {
+          _uploadStatusEl = document.createElement('div');
+          _uploadStatusEl.className = 'gen-status';
+          _uploadStatusEl.innerHTML =
+            '<span class="gen-spinner"></span><span class="gen-label"></span>';
+          const inputArea = $('input-area');
+          inputArea.parentNode.insertBefore(_uploadStatusEl, inputArea);
+        }
+        _uploadStatusEl.querySelector('.gen-label').textContent = text;
+      }
+      function _removeUploadStatus() {
+        if (_uploadStatusEl) {
+          _uploadStatusEl.remove();
+          _uploadStatusEl = null;
+        }
+      }
+
+      // ── Streaming mode helpers ──────────────────────────────────────────────
+
+      function enterStreamingMode() {
+        const btn = $('sendBtn');
+        btn.textContent = '停止';
+        btn.classList.add('btn-stop');
+        btn.disabled = false; // Always enabled in stop mode
+      }
+
+      function exitStreamingMode() {
+        const btn = $('sendBtn');
+        btn.textContent = '发送';
+        btn.classList.remove('btn-stop');
+        streamAbortController = null;
+        updateSendBtn();
+      }
+
+      function stopStream() {
+        // Immediately reflect the stop in the UI and fire the cancel
+        // request WITHOUT awaiting it — the click should feel instant.
+        // The running stream then emits run_end(cancelled), which drives
+        // all cleanup (exitStreamingMode, re-enable input, etc.) on its own.
+        const btn = $('sendBtn');
+        if (btn) {
+          btn.textContent = '停止中…';
+          btn.disabled = true;
+        }
+
+        const h = {};
+        if (token()) h['Authorization'] = `Bearer ${token()}`;
+        const formData = new URLSearchParams();
+        formData.append('conversation_id', conversationId);
+        fetch(`${baseUrl()}/py/api/chat/stream/stop`, {
+          method: 'POST',
+          headers: {
+            ...h,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: formData,
+        }).catch(() => {
+          // If /stop fails, fall back to abort so the stream still ends.
+          if (streamAbortController) {
+            streamAbortController.abort();
+            streamAbortController = null;
+          }
+        });
+      }
+
+      function _addCancelledNote(container) {
+        const note = document.createElement('div');
+        note.className = 'cancelled-note';
+        note.innerHTML = '⚠️ 生成被中断';
+        container.appendChild(note);
+      }
+
+      async function sendStream(msg, thinkingEnabled, fileMeta) {
+        // Create a placeholder message for streaming
+        const w = $('messages').querySelector('.msg.welcome');
+        if (w) w.remove();
+
+        const div = document.createElement('div');
+        div.className = 'msg assistant';
+        div.id = 'streaming-msg';
+
+        $('messages').appendChild(div);
+        $('messages').scrollTop = $('messages').scrollHeight;
+
+        // Persistent "生成中" status bar tracking.
+        // Declared before the immediate _setGenStatus() call below so it
+        // is initialized (no temporal-dead-zone error).
+        let genStatusEl = null;
+        // Detach guard: when a new conversation/stream starts, it takes over
+        // the global `streamAbortController`.  A superseded stream detects the
+        // mismatch and stops touching the UI, so a stale "生成中" bar is never
+        // re-created after the user opens a new conversation.
+        let detached = false;
+        const myController = new AbortController();
+        streamAbortController = myController;
+
+        // Show the "生成中" spinner immediately (before the network round-trip),
+        // so even the fetch/connection delay has a visible animation.
+        _setGenStatus('正在生成…');
+
+        // ── Interleaved text + tool rendering ───────────────────────────────
+        // Agent output is: text → tool → text → tool → text (chronological)
+        // We track text segments and insert tool cards between them.
+        let curText = ''; // text accumulated since last tool call
+        let curSeg = null; // current text segment DOM element (or null)
+        let streamConvId = conversationId;
+        let pendingCards = {}; // { run_id: {name, input, el, isSubagent, description} }
+        let hasError = false;
+        let hasCancelled = false; // set when finish_reason is "cancelled"
+        let curReasoning = ''; // reasoning content accumulated
+        let curReasoningEl = null; // reasoning card DOM element
+        let curReasoningPre = null; // reasoning <pre> element (direct ref)
+
+        function _ensureSeg() {
+          if (!curSeg) {
+            curSeg = document.createElement('div');
+            curSeg.className = 'msg-body';
+            div.appendChild(curSeg);
+          }
+          return curSeg;
+        }
+        function _closeSeg() {
+          // Finalize current text segment: render markdown if it has content, remove if empty
+          if (curSeg) {
+            if (curText.trim()) {
+              curSeg.innerHTML = renderAssistantContent(curText);
+            } else {
+              curSeg.remove();
+            }
+            curSeg = null;
+            curText = '';
+          }
+        }
+        function _fmtElapsed(secs) {
+          const s = Math.floor(secs || 0);
+          const mins = Math.floor(s / 60);
+          const sec = s % 60;
+          return mins > 0 ? `${mins}分${sec}秒` : `${sec}秒`;
+        }
+        // A persistent "生成中" status bar pinned to the top of the assistant
+        // bubble.  It lives from run_start to run_end, its spinner keeps
+        // animating the whole time, and only the phase label changes — so the
+        // page never looks frozen while the agent is working.
+        function _ensureGenStatus() {
+          if (detached) return null;
+          if (!genStatusEl || !genStatusEl.parentNode) {
+            genStatusEl = document.createElement('div');
+            genStatusEl.className = 'gen-status';
+            genStatusEl.innerHTML =
+              '<span class="gen-spinner"></span><span class="gen-label">正在生成…</span>';
+            // Pin the status bar just above the input area — fixed at the
+            // bottom of the viewport, not scrolled away with the messages.
+            const inputArea = $('input-area');
+            inputArea.parentNode.insertBefore(genStatusEl, inputArea);
+          }
+          return genStatusEl;
+        }
+        function _setGenStatus(text) {
+          const el = _ensureGenStatus();
+          if (!el) return null;
+          const label = el.querySelector('.gen-label');
+          if (label) label.textContent = text;
+          return el;
+        }
+        function _removeGenStatus() {
+          if (genStatusEl) {
+            genStatusEl.remove();
+            genStatusEl = null;
+          }
+        }
+        function _setThinkingStatus() {
+          // 静默期文案：开深度思考 →「思考中」，否则只是普通生成 →「生成中」。
+          // thinking_start / tool_end / progress(thinking) 是「模型安静期」的通用
+          // 信号，并不一定代表深度推理；只有 reasoning 事件才是真正的深度思考内容。
+          _setGenStatus(thinkingEnabled ? '思考中…' : '生成中…');
+        }
+
+        try {
+          const h = {};
+          if (token()) h['Authorization'] = `Bearer ${token()}`;
+
+          // Build FormData — conversation_id is always required
+          const formData = new FormData();
+          formData.append('message', msg);
+          formData.append('conversation_id', conversationId);
+          formData.append(
+            'thinking_enabled',
+            thinkingEnabled ? 'true' : 'false',
+          );
+          if (selectedModel) formData.append('model_name', selectedModel);
+          if (fileMeta) formData.append('file_metadatas', fileMeta);
+
+          const r = await fetch(`${baseUrl()}/py/api/chat/stream`, {
+            method: 'POST',
+            headers: h,
+            body: formData,
+            signal: myController.signal,
+          });
+          if (!r.ok) {
+            div.remove();
+            const err = await r.text();
+            throw new Error(`${r.status} ${r.statusText}: ${err}`);
+          }
+
+          const reader = r.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            // Detach guard: a new conversation/stream has taken over the
+            // global controller — stop touching the UI so this stale loop
+            // never re-creates the "生成中" bar after the user switched away.
+            if (streamAbortController !== myController) {
+              detached = true;
+              break;
+            }
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              const payload = line.slice(6);
+              if (payload === '[DONE]') break;
+
+              try {
+                const evt = JSON.parse(payload);
+                const evtType = evt.type;
+                const delta = evt.choices?.[0]?.delta || {};
+
+                if (evtType === 'run_start') {
+                  if (delta.conversation_id)
+                    streamConvId = delta.conversation_id;
+                  _setGenStatus('正在生成…');
+                  // 回合开始，后端已写入 status=running + 占位标题，刷新侧栏
+                  // 让新会话以「生成中」脉冲点出现在顶部。
+                  loadConversations();
+                } else if (evtType === 'run_end') {
+                  const reason = evt.choices?.[0]?.finish_reason;
+                  if (reason === 'cancelled') {
+                    hasCancelled = true;
+                  }
+                  _removeGenStatus();
+                } else if (evtType === 'thinking_start') {
+                  // New LLM call — reset reasoning accumulator for this call
+                  curReasoning = '';
+                  curReasoningEl = null;
+                  curReasoningPre = null;
+                  _setThinkingStatus();
+                } else if (evtType === 'token') {
+                  _setGenStatus('生成中…');
+                  curText += delta.content || '';
+                  _ensureSeg().innerHTML = renderAssistantContent(curText);
+                  $('messages').scrollTop = $('messages').scrollHeight;
+                } else if (evtType === 'reasoning') {
+                  _closeSeg();
+                  _setThinkingStatus();
+                  const content = delta.content || '';
+                  // Handle both delta and full-content modes from the API:
+                  // - If the new content starts with the old, the API sends full content → replace
+                  // - Otherwise the API sends deltas → accumulate
+                  if (content.startsWith(curReasoning)) {
+                    curReasoning = content;
+                  } else {
+                    curReasoning += content;
+                  }
+                  if (!curReasoningEl) {
+                    curReasoningEl = document.createElement('div');
+                    curReasoningEl.className = 'tool-card';
+                    curReasoningEl.classList.add('expanded');
+                    curReasoningEl.innerHTML = `<div class="tc-header" onclick="this.parentElement.classList.toggle('expanded')"><span style="color:var(--text2);flex:1">💭 思考</span><span class="tc-arrow">▸</span></div>`;
+                    const body = document.createElement('div');
+                    body.className = 'tc-body';
+                    curReasoningPre = document.createElement('pre');
+                    curReasoningPre.style.cssText =
+                      'color:var(--text2);margin:0;white-space:pre-wrap;font-size:12px';
+                    body.appendChild(curReasoningPre);
+                    curReasoningEl.appendChild(body);
+                    div.appendChild(curReasoningEl);
+                  }
+                  curReasoningPre.textContent = curReasoning;
+                  $('messages').scrollTop = $('messages').scrollHeight;
+                } else if (evtType === 'tool_start') {
+                  _closeSeg(); // close the text segment before this tool
+                  // Support both flat format (evt.tool/input/is_subagent) and
+                  // OpenAI-style format (delta.tool/delta.input/delta.is_subagent).
+                  const tool = evt.tool || delta.tool || 'unknown';
+                  const input = evt.input || delta.input || '';
+                  const isSub = (evt.is_subagent || delta.is_subagent) === true;
+                  // Use backend-provided description for subagent display, or
+                  // extract from input JSON as fallback.
+                  const desc = evt.description || delta.description || '';
+                  const runId = evt.run_id || delta.run_id || '';
+                  _setGenStatus(
+                    isSub ? '委派子代理中…' : '执行工具中…',
+                  );
+                  const card = createToolCard(
+                    tool,
+                    input,
+                    null,
+                    true,
+                    isSub,
+                    desc,
+                  );
+                  div.appendChild(card);
+                  pendingCards[runId] = {
+                    name: tool,
+                    input: input,
+                    el: card,
+                    isSubagent: isSub,
+                    description: desc,
+                  };
+                  $('messages').scrollTop = $('messages').scrollHeight;
+                } else if (evtType === 'tool_end') {
+                  _setThinkingStatus();
+                  // Support both flat format and OpenAI-style format
+                  const tool = evt.tool || delta.tool || 'unknown';
+                  const output = evt.output || delta.output || '';
+                  const isSubFromEvt =
+                    (evt.is_subagent || delta.is_subagent) === true;
+                  const elapsed = evt.elapsed_seconds;
+                  const toolErr = evt.error || delta.error || '';
+                  const runId = evt.run_id || delta.run_id || '';
+                  const pending = pendingCards[runId];
+                  if (pending) {
+                    // Replace the pending card with a completed one
+                    const isSub = pending.isSubagent || isSubFromEvt;
+                    const desc = pending.description || '';
+                    const newCard = createToolCard(
+                      pending.name,
+                      pending.input,
+                      output,
+                      false,
+                      isSub,
+                      desc,
+                      elapsed,
+                      toolErr,
+                    );
+                    pending.el.replaceWith(newCard);
+                    delete pendingCards[runId];
+                  } else {
+                    // Orphan tool_end — create a standalone card
+                    div.appendChild(
+                      createToolCard(
+                        tool,
+                        null,
+                        output,
+                        false,
+                        isSubFromEvt,
+                        '',
+                        elapsed,
+                        toolErr,
+                      ),
+                    );
+                  }
+                  $('messages').scrollTop = $('messages').scrollHeight;
+                } else if (evtType === 'error') {
+                  _closeSeg();
+                  _removeGenStatus();
+                  const errMsg = evt.message || delta.message || '未知错误';
+                  if ((evt.recoverable || delta.recoverable) === true) {
+                    // Recoverable interruption (step limit) — render as a
+                    // hint, not a hard error, so the user knows they can
+                    // continue the task.
+                    const hintEl = document.createElement('div');
+                    hintEl.className = 'tool-card';
+                    hintEl.innerHTML = `<div class="tc-header" style="cursor:default"><span style="color:var(--yellow)">💡 提示</span></div><div class="tc-body" style="display:block;border-top:1px solid var(--border);padding:8px 10px"><pre style="color:var(--text2);white-space:pre-wrap;margin:0">${escHtml(errMsg)}</pre></div>`;
+                    div.appendChild(hintEl);
+                  } else {
+                    hasError = true;
+                    const errEl = document.createElement('div');
+                    errEl.className = 'tool-card';
+                    errEl.innerHTML = `<div class="tc-header" style="cursor:default"><span style="color:var(--red)">❌ 错误</span></div><div class="tc-body" style="display:block;border-top:1px solid var(--border);padding:8px 10px"><pre style="color:var(--red)">${escHtml(errMsg)}</pre></div>`;
+                    div.appendChild(errEl);
+                  }
+                } else if (evtType === 'subagent_progress') {
+                  // Update the pending subagent card + status bar with elapsed time
+                  const runId = evt.run_id || delta.run_id || '';
+                  const elapsed = evt.elapsed_seconds || delta.elapsed_seconds;
+                  if (elapsed !== undefined) {
+                    _setGenStatus(`委派子代理中… (${_fmtElapsed(elapsed)})`);
+                  }
+                  // 状态栏已展示耗时，中间内容区（工具卡片）不再重复展示时间。
+                  const pending = pendingCards[runId];
+                  if (pending) {
+                    const pendingEl = pending.el.querySelector('.tc-pending');
+                    if (pendingEl) {
+                      pendingEl.textContent = `⏳ 子代理执行中…`;
+                    }
+                  }
+                } else if (evtType === 'progress') {
+                  // 1s heartbeat during quiet periods.  phase ∈
+                  // {thinking, tool}.  Update the persistent status bar
+                  // (and the pending tool card when relevant).
+                  const phase = evt.phase || delta.phase || 'thinking';
+                  if (phase === 'thinking') {
+                    // 静默期不显示耗时（统一无时间），只有子代理委派显示耗时。
+                    _setThinkingStatus();
+                  } else {
+                    _setGenStatus('执行工具中…');
+                  }
+                  const runId = evt.run_id || delta.run_id || '';
+                  const pending = pendingCards[runId];
+                  if (pending) {
+                    const pendingEl = pending.el.querySelector('.tc-pending');
+                    if (pendingEl) {
+                      if (pending.isSubagent) {
+                        pendingEl.textContent = `⏳ 子代理执行中…`;
+                      } else {
+                        pendingEl.textContent = `⏳ 执行中…`;
+                      }
+                    }
+                  }
+                }
+              } catch (parseErr) {
+                // Legacy format fallback
+                try {
+                  const data = JSON.parse(payload);
+                  if (data.token) {
+                    curText += data.token;
+                    _ensureSeg().innerHTML = renderAssistantContent(curText);
+                    $('messages').scrollTop = $('messages').scrollHeight;
+                  }
+                  if (data.conversation_id) streamConvId = data.conversation_id;
+                } catch {}
+              }
+            }
+          }
+
+          // Detach guard: this stream was superseded by a new
+          // conversation/stream — the new one owns the status bar, so just
+          // clear any leftover and return without mutating the (now stale) UI.
+          if (detached) {
+            _removeGenStatus();
+            return;
+          }
+
+          div.removeAttribute('id');
+          // Show cancelled indicator if the stream was interrupted
+          if (hasCancelled) {
+            _addCancelledNote(div);
+          }
+          // Finalize the last text segment
+          _removeGenStatus();
+          _closeSeg();
+          if (streamConvId) {
+            conversationId = streamConvId;
+            $('convTitle').textContent =
+              activeConvTitle || conversationId.substring(0, 8) + '...';
+            setActiveConv(conversationId);
+          }
+          // If nothing was rendered at all, show a placeholder.
+          // If an error was signalled, show error text instead of "(空响应)".
+          if (
+            !div.querySelector('.msg-body') &&
+            !div.querySelector('.tool-card')
+          ) {
+            const empty = document.createElement('div');
+            empty.className = 'msg-body';
+            empty.textContent = hasError ? '(请求出错，请重试)' : '(空响应)';
+            div.appendChild(empty);
+          }
+
+          // Refresh conversation list + artifacts panel
+          loadConversations();
+          refreshFileTree();
+
+          // Restore UI state (always, for both normal & cancelled paths)
+          exitStreamingMode();
+          const input = $('userInput');
+          if (input) {
+            input.disabled = false;
+            input.focus();
+          }
+        } catch (e) {
+          // AbortError is expected when /stop fails and we fall back to abort
+          if (e.name === 'AbortError') {
+            // Append cancelled note to the streaming message if still present
+            const el = document.getElementById('streaming-msg');
+            if (el) {
+              _closeSeg();
+              _addCancelledNote(el);
+              el.removeAttribute('id');
+              loadConversations();
+              refreshFileTree();
+            }
+            exitStreamingMode();
+            const input = $('userInput');
+            if (input) {
+              input.disabled = false;
+              input.focus();
+            }
+            return;
+          }
+          const el = document.getElementById('streaming-msg');
+          if (el) el.remove();
+          addMsg('system', '❌ 流式错误: ' + e.message);
+          // 刷新会话列表，避免状态点停留在「生成中」脉冲。
+          loadConversations();
+          exitStreamingMode();
+          const input = $('userInput');
+          if (input) {
+            input.disabled = false;
+            input.focus();
+          }
+        }
+      }
+
+      // ═══════════════════════ QUICK ═══════════════════════
+      function quickSend(msg) {
+        // If the user explicitly selected a historical conversation in the
+        // sidebar, debug quick-send reuses it (so test messages land in the
+        // viewed conversation).  Otherwise — fresh start, new conversation,
+        // or page refresh — create a brand-new conversation.
+        if (!conversationId) {
+          newConversation();
+        }
+        $('userInput').value = msg;
+        autoResizeTextarea();
+        send();
+      }
+
+      // ═══════════════════════ FILE LINKIFY ═══════════════════════
+      const _FILE_PATH_RE =
+        /(?<![">])(\/mnt\/user-data\/(?:outputs|uploads|workspace)\/[^\s<>"'&，。；：！？、（）【】「」《》]+(?:\.\w[\w.]*)?)/g;
+
+      function linkifyFilePaths(html) {
+        if (!html) return html;
+        return html.replace(_FILE_PATH_RE, (match) => {
+          const filename = match.split('/').pop();
+          // Match might end with punctuation that isn't part of the filename
+          return `<a class="file-link" data-path="${escHtml(match)}" onclick="openFileModal('${escJs(match)}')" title="点击预览 / 下载">📄 ${escHtml(filename)}</a>`;
+        });
+      }
+
+      // A wrapper that runs marked + linkify for assistant messages
+      function renderAssistantContent(markdownText) {
+        return linkifyFilePaths(marked.parse(markdownText));
+      }
+
+      // Post-process already-rendered DOM to linkify file paths
+      function linkifyFilePathsInDOM(rootEl) {
+        const bodies = rootEl.querySelectorAll('.msg-body');
+        bodies.forEach((body) => {
+          // Only process if it hasn't been linkified yet
+          if (body.querySelector('.file-link')) return;
+          // Re-render: get original markdown from parsed HTML
+          // Simpler approach: walk text nodes and replace
+          const walker = document.createTreeWalker(
+            body,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false,
+          );
+          const replacements = [];
+          while (walker.nextNode()) {
+            const node = walker.currentNode;
+            // Skip nodes inside file links or tool cards or code blocks
+            if (
+              node.parentElement.closest('.file-link, .tool-card, pre, code, a')
+            )
+              continue;
+            let text = node.textContent;
+            let match;
+            let lastIndex = 0;
+            let fragments = [];
+            _FILE_PATH_RE.lastIndex = 0;
+            while ((match = _FILE_PATH_RE.exec(text)) !== null) {
+              fragments.push(
+                document.createTextNode(text.slice(lastIndex, match.index)),
+              );
+              const filename = match[0].split('/').pop();
+              const a = document.createElement('a');
+              a.className = 'file-link';
+              a.dataset.path = match[0];
+              a.title = '点击预览 / 下载';
+              a.innerHTML = `📄 ${escHtml(filename)}`;
+              a.onclick = function (e) {
+                e.preventDefault();
+                openFileModal(match[0]);
+              };
+              fragments.push(a);
+              lastIndex = _FILE_PATH_RE.lastIndex;
+            }
+            if (fragments.length > 0) {
+              fragments.push(document.createTextNode(text.slice(lastIndex)));
+              const container = document.createDocumentFragment();
+              fragments.forEach((f) => container.appendChild(f));
+              node.parentElement.replaceChild(container, node);
+            }
+          }
+        });
+      }
+
+      // ═══════════════════════ FILE MODAL ═══════════════════════
+      let _currentFile = {
+        path: '',
+        downloadUrl: '',
+        infoUrl: '',
+        blobUrl: '',
+      };
+
+      // Fetch file as blob with auth headers, returns object URL
+      async function fetchFileBlob(virtualPath) {
+        const viewUrl = `${baseUrl()}/py/api/chat/files/${conversationId}?path=${encodeURIComponent(virtualPath)}`;
+        const r = await fetch(viewUrl, { headers: headers() });
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+        const blob = await r.blob();
+        return URL.createObjectURL(blob);
+      }
+
+      function openFileModal(virtualPath) {
+        const convId = conversationId;
+        if (!convId) {
+          alert('请先开始一个对话');
+          return;
+        }
+
+        _currentFile.path = virtualPath;
+        _currentFile.blobUrl = '';
+        const infoUrl = `${baseUrl()}/py/api/chat/files/${convId}/info?path=${encodeURIComponent(virtualPath)}`;
+
+        // Show overlay + loading state
+        const overlay = $('fileModalOverlay');
+        overlay.classList.add('open');
+        $('fmName').textContent = virtualPath.split('/').pop() || 'file';
+        $('fmSize').textContent = '加载中...';
+        $('fmType').textContent = '';
+        $('fmIcon').textContent = '📄';
+        $('fmBody').innerHTML =
+          '<div class="fm-placeholder"><div style="font-size:28px;margin-bottom:8px">⏳</div>加载中...</div>';
+
+        // Fetch file info
+        fetch(infoUrl, { headers: headers() })
+          .then((r) => {
+            if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+            return r.json();
+          })
+          .then((info) => renderFilePreview(info))
+          .catch((err) => {
+            $('fmBody').innerHTML =
+              `<div class="fm-placeholder"><div class="fm-big-icon">❌</div><div class="fm-hint">加载文件信息失败<br><small>${escHtml(err.message)}</small></div></div>`;
+            $('fmSize').textContent = '加载失败';
+          });
+      }
+
+      function renderFilePreview(info) {
+        // Header
+        $('fmName').textContent = info.filename;
+        $('fmSize').textContent = formatFileSize(info.size);
+        $('fmType').textContent = info.content_type || info.extension;
+        const ext = (info.extension || '').toLowerCase();
+
+        // Icon by type
+        const iconMap = {
+          '.png': '🖼️',
+          '.jpg': '🖼️',
+          '.jpeg': '🖼️',
+          '.gif': '🖼️',
+          '.svg': '🖼️',
+          '.webp': '🖼️',
+          '.bmp': '🖼️',
+          '.pdf': '📕',
+          '.mp4': '🎬',
+          '.webm': '🎬',
+          '.mov': '🎬',
+          '.mp3': '🎵',
+          '.wav': '🎵',
+          '.flac': '🎵',
+          '.ogg': '🎵',
+          '.zip': '📦',
+          '.tar': '📦',
+          '.gz': '📦',
+          '.rar': '📦',
+          '.7z': '📦',
+          '.pptx': '📊',
+          '.docx': '📝',
+          '.xlsx': '📈',
+          '.py': '🐍',
+          '.js': '💛',
+          '.ts': '🔷',
+          '.html': '🌐',
+          '.css': '🎨',
+          '.json': '📋',
+        };
+        $('fmIcon').textContent = iconMap[ext] || '📄';
+
+        if (!info.previewable) {
+          $('fmBody').innerHTML = `
+      <div class="fm-placeholder">
+        <div class="fm-big-icon">${iconMap[ext] || '📄'}</div>
+        <div class="fm-hint">
+          <strong>${escHtml(info.filename)}</strong><br>
+          ${formatFileSize(info.size)} &middot; ${escHtml(info.content_type || '未知类型')}<br>
+          <small style="color:var(--text2);margin-top:6px;display:block">此文件类型不支持在线预览</small>
+        </div>
+      </div>`;
+          return;
+        }
+
+        // Preview via blob URL (fetch with auth, then render locally)
+        fetchFileBlob(_currentFile.path)
+          .then((blobUrl) => {
+            _currentFile.blobUrl = blobUrl;
+            const ext = (info.extension || '').toLowerCase();
+            if (
+              [
+                '.png',
+                '.jpg',
+                '.jpeg',
+                '.gif',
+                '.svg',
+                '.webp',
+                '.bmp',
+                '.ico',
+              ].includes(ext)
+            ) {
+              $('fmBody').innerHTML =
+                `<img src="${blobUrl}" alt="${escHtml(info.filename)}" onerror="this.parentElement.innerHTML='<div class=\\'fm-placeholder\\'><div class=\\'fm-big-icon\\'>❌</div>加载预览失败</div>'">`;
+            } else if (ext === '.pdf') {
+              $('fmBody').innerHTML =
+                `<iframe src="${blobUrl}" title="${escHtml(info.filename)}"></iframe>`;
+            } else if (['.mp4', '.webm', '.ogg'].includes(ext)) {
+              $('fmBody').innerHTML =
+                `<video controls style="max-width:100%;max-height:60vh"><source src="${blobUrl}" type="${info.content_type}">不支持播放</video>`;
+            } else if (['.mp3', '.wav', '.flac'].includes(ext)) {
+              $('fmBody').innerHTML =
+                `<div style="padding:40px;text-align:center"><audio controls src="${blobUrl}" style="width:100%;max-width:400px"></audio></div>`;
+            } else {
+              // Text files: fetch and display
+              fetch(
+                `${baseUrl()}/py/api/chat/files/${conversationId}?path=${encodeURIComponent(_currentFile.path)}`,
+                { headers: headers() },
+              )
+                .then((r) => {
+                  if (!r.ok) throw new Error(r.status);
+                  return r.text();
+                })
+                .then((text) => {
+                  $('fmBody').innerHTML = `<pre>${escHtml(text)}</pre>`;
+                })
+                .catch(() => {
+                  $('fmBody').innerHTML =
+                    `<div class="fm-placeholder"><div class="fm-big-icon">❌</div>加载预览失败</div>`;
+                });
+            }
+          })
+          .catch(() => {
+            $('fmBody').innerHTML =
+              `<div class="fm-placeholder"><div class="fm-big-icon">❌</div>加载预览失败</div>`;
+          });
+      }
+
+      function closeFileModal() {
+        $('fileModalOverlay').classList.remove('open');
+        if (_currentFile.blobUrl) URL.revokeObjectURL(_currentFile.blobUrl);
+        _currentFile = { path: '', blobUrl: '' };
+      }
+
+      async function downloadCurrentFile() {
+        if (!_currentFile.path) return;
+        try {
+          // Resolve the self-authenticating URL and log it so it can be
+          // opened manually (e.g. to verify the OBS signature).
+          try {
+            const ep =
+              `${baseUrl()}/py/api/chat/files/${conversationId}/url?path=${encodeURIComponent(_currentFile.path)}` +
+              '&download=true';
+            const r = await fetch(ep, { headers: headers() });
+            if (r.ok) {
+              const data = await r.json();
+              console.log('[file] download url:', data.url);
+            } else {
+              console.warn('[file] resolve url failed:', r.status);
+            }
+          } catch (err) {
+            console.warn('[file] resolve url failed:', err);
+          }
+
+          // Download via a blob fetched through SkillHub (same-origin, carries
+          // the JWT header) — the previous download method.
+          const blobUrl =
+            _currentFile.blobUrl || (await fetchFileBlob(_currentFile.path));
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = _currentFile.path.split('/').pop() || 'file';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } catch (e) {
+          console.error('Download failed:', e);
+        }
+      }
+
+      // Keyboard: ESC to close modal
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeFileModal();
+      });
+
+      // ═══════════════════════ FILE TREE ═══════════════════════
+      let _fileTreeRoots = [];
+
+      function _iconForExt(ext) {
+        const m = {
+          '.py': '🐍',
+          '.js': '💛',
+          '.ts': '🔷',
+          '.html': '🌐',
+          '.css': '🎨',
+          '.json': '📋',
+          '.png': '🖼️',
+          '.jpg': '🖼️',
+          '.jpeg': '🖼️',
+          '.gif': '🖼️',
+          '.svg': '🖼️',
+          '.webp': '🖼️',
+          '.pdf': '📕',
+          '.pptx': '📊',
+          '.docx': '📝',
+          '.xlsx': '📈',
+          '.txt': '📄',
+          '.md': '📝',
+          '.csv': '📊',
+          '.xml': '📋',
+          '.yaml': '📋',
+          '.yml': '📋',
+          '.mp4': '🎬',
+          '.webm': '🎬',
+          '.mp3': '🎵',
+          '.wav': '🎵',
+          '.zip': '📦',
+          '.tar': '📦',
+          '.gz': '📦',
+          '.rar': '📦',
+          '.sh': '⚡',
+          '.bash': '⚡',
+          '.ps1': '⚡',
+        };
+        return m[ext] || '📄';
+      }
+
+      function _countTreeFiles(node) {
+        let n = 0;
+        if (node.type === 'file') return 1;
+        if (node.children)
+          for (const c of node.children) n += _countTreeFiles(c);
+        return n;
+      }
+
+      function _renderTreeNode(node, depth) {
+        const container = document.createElement('div');
+        container.className = depth === 0 ? 'ft-root' : 'ft-dir';
+        container.style.marginLeft = depth > 0 ? '0' : '';
+
+        if (node.type === 'directory') {
+          const header = document.createElement('div');
+          header.className = depth === 0 ? 'ft-root-header' : 'ft-dir-header';
+          // Toggle arrow
+          const toggle = document.createElement('span');
+          toggle.className = 'ft-toggle open';
+          toggle.textContent = '▶';
+          header.appendChild(toggle);
+          // Icon + label
+          const icon = document.createElement('span');
+          icon.className = 'ft-icon';
+          icon.textContent = depth === 0 ? '📁' : '📂';
+          header.appendChild(icon);
+          const label = document.createElement('span');
+          label.className = 'ft-label';
+          label.textContent = depth === 0 ? node.label || node.name : node.name;
+          header.appendChild(label);
+          // File count badge (root level only)
+          if (depth === 0) {
+            const badge = document.createElement('span');
+            badge.className = 'ft-badge';
+            badge.textContent = _countTreeFiles(node);
+            header.appendChild(badge);
+          }
+          header.addEventListener('click', () => {
+            const open = !toggle.classList.contains('open');
+            toggle.classList.toggle('open', open);
+            childrenEl.classList.toggle('collapsed', !open);
+          });
+          container.appendChild(header);
+
+          const childrenEl = document.createElement('div');
+          childrenEl.className =
+            depth === 0 ? 'ft-children' : 'ft-dir-children';
+          if (node.children) {
+            for (const child of node.children) {
+              childrenEl.appendChild(_renderTreeNode(child, depth + 1));
+            }
+          }
+          container.appendChild(childrenEl);
+        } else {
+          // File node
+          const row = document.createElement('div');
+          row.className = 'ft-file';
+          row.style.paddingLeft = depth * 14 + 4 + 'px';
+          const icon = document.createElement('span');
+          icon.className = 'ft-icon';
+          icon.textContent = _iconForExt(node.extension || '');
+          row.appendChild(icon);
+          const name = document.createElement('span');
+          name.className = 'ft-name';
+          name.textContent = node.name;
+          name.title = node.name;
+          row.appendChild(name);
+          const size = document.createElement('span');
+          size.className = 'ft-size';
+          size.textContent = formatFileSize(node.size || 0);
+          row.appendChild(size);
+          // Actions (visible on hover)
+          const actions = document.createElement('span');
+          actions.className = 'ft-actions';
+          const vp = node.virtual_path;
+          actions.innerHTML =
+            '<button class="ft-btn-view" onclick="event.stopPropagation();openFileModal(\'' +
+            escJs(vp) +
+            '\')">预览</button>' +
+            '<button class="ft-btn-dl" onclick="event.stopPropagation();downloadArtifact(\'' +
+            escJs(vp) +
+            '\')">⬇</button>';
+          row.appendChild(actions);
+          row.addEventListener('click', () => openFileModal(vp));
+          container.appendChild(row);
+        }
+        return container;
+      }
+
+      function _renderFileTree(roots) {
+        const list = $('apList');
+        list.innerHTML = '';
+        _fileTreeRoots = roots;
+        let totalFiles = 0;
+        roots
+          .filter((r) => r.children && r.children.length > 0)
+          .forEach((root) => {
+            totalFiles += _countTreeFiles(root);
+            list.appendChild(_renderTreeNode(root, 0));
+          });
+        if (totalFiles === 0) {
+          list.innerHTML =
+            '<div class="ap-empty">当前对话暂无文件<br><small>Agent 生成的文件会自动展示在这里</small></div>';
+        }
+        _updateApCount();
+      }
+
+      function refreshFileTree() {
+        if (!conversationId) {
+          clearFileTree();
+          return;
+        }
+
+        fetch(
+          `${baseUrl()}/py/api/conversations/${conversationId}/files/tree`,
+          { headers: headers() },
+        )
+          .then((r) => {
+            if (!r.ok) throw new Error(r.status);
+            return r.json();
+          })
+          .then((data) => {
+            _renderFileTree(data.roots || []);
+          })
+          .catch(() => {
+            // Silently ignore — file tree is non-critical
+          });
+      }
+
+      function clearFileTree() {
+        _fileTreeRoots = [];
+        $('apList').innerHTML =
+          '<div class="ap-empty">Agent 生成的文件<br>会自动展示在这里</div>';
+        _updateApCount();
+      }
+
+      function _updateApCount() {
+        let total = 0;
+        _fileTreeRoots.forEach((r) => {
+          total += _countTreeFiles(r);
+        });
+        $('apCount').textContent = total;
+      }
+
+      function downloadArtifact(virtualPath) {
+        if (!conversationId) return;
+        _currentFile.path = virtualPath;
+        _currentFile.blobUrl = '';
+        downloadCurrentFile();
+      }
+
+      // ═══════════════════════ AUTH VERIFY ═══════════════════════
+      async function verifyAndInit() {
+        // 1. 优先从 URL query 参数中提取 token 并存入 localStorage
+        const params = new URLSearchParams(window.location.search);
+        const urlToken = params.get('token');
+        if (urlToken) {
+          setToken(urlToken);
+          // 清除 URL 中的 token 参数（安全）
+          if (window.history.replaceState) {
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+          }
+        }
+
+        // 2. 同步 token 输入框（从 localStorage 读取）
+        $('token').value = getToken();
+
+        const t = token();
+        console.log(
+          'verifyAndInit: token =',
+          t ? t.substring(0, 20) + '...' : '(empty)',
+        );
+        $('authStatus').className = 'status-dot idle';
+        $('authText').textContent = '验证中...';
+
+        if (!t) {
+          $('authStatus').className = 'status-dot err';
+          $('authText').textContent = '未设置 Token';
+          finishInit();
+          return;
+        }
+
+        // 3. 调用 verify 接口校验并注册
+        try {
+          const r = await fetch(`${baseUrl()}/py/api/auth/verify`, {
+            method: 'POST',
+            headers: headers(),
+          });
+          if (!r.ok) {
+            const err = await r.text();
+            throw new Error(`${r.status}: ${err}`);
+          }
+          const data = await r.json();
+          currentRole = data.role || 'user';
+          console.log('Auth verify OK:', data);
+          $('authStatus').className = 'status-dot ok';
+          $('authText').textContent =
+            `已鉴权 · ${data.user_id.substring(0, 12)}...${data.is_new_user ? ' (新注册)' : ''}`;
+        } catch (e) {
+          $('authStatus').className = 'status-dot err';
+          $('authText').textContent = e.message;
+        }
+
+        finishInit();
+      }
+
+      function finishInit() {
+        // ── Base URL 初始化 ──────────────────────────────────────────────────
+        // 检查 localStorage 是否有用户手动保存的 URL，没有则用环境默认值
+        const savedUrl = localStorage.getItem('skillhub_baseUrl');
+        if (savedUrl) {
+          $('baseUrl').value = savedUrl;
+        } else {
+          $('baseUrl').value = getDefaultBaseUrl();
+        }
+        // 更新环境标签
+        updateEnvBadge();
+        // 监听用户手动修改，自动保存
+        $('baseUrl').addEventListener('input', () => {
+          localStorage.setItem('skillhub_baseUrl', $('baseUrl').value.trim());
+          updateEnvBadge();
+        });
+
+        // Page refresh / new tab always starts fresh — we intentionally do
+        // NOT restore conversationId from storage.  The user must explicitly
+        // click a conversation in the sidebar to select it.  This prevents
+        // debug quick-send from accidentally routing messages into a
+        // historical conversation.
+        checkHealth();
+        loadConversations();
+        fetchModels();
+        renderThinkingToggle();
+
+        $('userInput').addEventListener('input', () => {
+          autoResizeTextarea();
+          updateSendBtn();
+        });
+        updateSendBtn();
+      }
+
+      function updateEnvBadge() {
+        const badge = $('envBadge');
+        const url = baseUrl();
+        if (!url) {
+          badge.textContent = '...';
+          badge.style.background = 'var(--surface2)';
+          badge.style.color = 'var(--text2)';
+          return;
+        }
+        try {
+          const u = new URL(url);
+          if (u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '[::1]') {
+            badge.textContent = '本地';
+            badge.style.background = 'rgba(250,204,21,0.2)';
+            badge.style.color = 'var(--yellow)';
+          } else {
+            badge.textContent = '线上';
+            badge.style.background = 'rgba(74,222,128,0.2)';
+            badge.style.color = 'var(--green)';
+          }
+        } catch {
+          badge.textContent = '?';
+          badge.style.background = 'var(--surface2)';
+          badge.style.color = 'var(--text2)';
+        }
+      }
+
+      // ── Start ──
+      verifyAndInit();
+    </script>
+  </body>
+</html>

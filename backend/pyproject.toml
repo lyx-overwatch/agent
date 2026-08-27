@@ -1,0 +1,52 @@
+[project]
+name = "skill-hub"
+version = "0.1.0"
+description = "SkillHub — 多用户 AI Agent + Skill 执行平台"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "langchain-core>=0.3.0",
+    "langchain-anthropic>=0.3.0",
+    "langgraph>=0.2.0",
+    "alembic>=1.18.4",
+    "asyncpg>=0.31.0",
+    "sqlmodel>=0.0.38",
+    "greenlet>=3.0.0",            # async SQLAlchemy 运行时依赖（sqlalchemy 的 marker 在 macOS arm64 下不会自动带上）
+    "httpx>=0.28.0",
+    "python-multipart>=0.0.26",
+    "sse-starlette>=2.1.0",
+    "uvicorn[standard]>=0.34.0",
+    "lark-oapi>=1.4.0",
+    "slack-sdk>=3.33.0",
+    "python-telegram-bot>=21.0",
+    "langgraph-sdk>=0.1.51",
+    "markdown-to-mrkdwn>=0.3.1",
+    "wecom-aibot-python-sdk>=0.1.6",
+    "bcrypt>=4.0.0",
+    "pyjwt>=2.9.0",
+    "langgraph-checkpoint-postgres>=3.0.5",
+    "psycopg[binary]>=3.3.3",
+    "psycopg-pool>=3.3.0",
+    "redis>=5.0.0",
+    "loguru>=0.7.0",
+    "agent-sdk[mcp, sandbox-aio]",
+    "python-docx>=1.0",
+    "python-pptx>=1.0",
+    "boto3>=1.35.0",              # S3-compat storage (OBS / MinIO / AWS S3)
+]
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.uv]
+index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+
+[tool.uv.sources]
+agent-sdk = { workspace = true }
+
+[tool.uv.workspace]
+members = ["packages/harness"]

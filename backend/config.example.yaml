@@ -1,0 +1,406 @@
+# ============================================================================
+# SkillHub Agent 运行时配置模板
+# ============================================================================
+# 使用方式:
+#   1. 复制此文件为 config.yaml:  cp config.example.yaml config.yaml
+#   2. 根据环境修改其中的值
+#   3. 环境变量用 $VAR 语法引用，启动时自动从 .env 解析
+#
+# 可通过 SKILLHUB_CONFIG_PATH 环境变量指定自定义配置文件路径。
+# ============================================================================
+
+config_version: 1
+
+# ============================================================================
+# 模型配置 (models)
+# ============================================================================
+# 支持配置多个模型，运行时通过 name 字段引用。
+#
+# 每个模型支持的字段分为两类:
+#
+# 【元数据字段】(agent_sdk 内部使用，不传给模型构造函数):
+#   name:                     内部标识符，代码中通过 name 引用模型
+#   use:                      模型类的 Python 模块路径 (模块:类名)
+#   display_name:             前端展示名称 (可选)
+#   description:              模型描述 (可选)
+#   supports_thinking:        是否支持 thinking/reasoning 模式切换
+#   thinking_locked:          是否锁定 thinking（始终开启、不可关闭，如 Kimi K2.7）
+#   supports_vision:          是否支持图片输入
+#   supports_reasoning_effort: 是否支持 reasoning_effort 参数
+#   when_thinking_enabled:    thinking 开启时注入的额外参数
+#   when_thinking_disabled:   thinking 关闭时注入的额外参数
+#
+# 【模型设置字段】(其余所有字段都作为 model_settings 传给模型构造函数):
+#   常用字段: model, api_base, api_key, timeout, max_retries 等
+#   具体支持哪些字段取决于 use 指向的模型类
+#
+# 支持的模型类 (use 字段):
+#   - agent_sdk.models.patched_deepseek:PatchedChatDeepSeek  (DeepSeek 系列)
+#   - langchain_anthropic:ChatAnthropic                       (Claude 系列)
+#   - langchain_openai:ChatOpenAI                             (OpenAI 兼容接口)
+# ============================================================================
+
+models:
+  # --- DeepSeek 系列 ---
+  - name: deepseek-v4-flash
+    display_name: DeepSeek-V4-Flash
+    use: agent_sdk.models.patched_deepseek:PatchedChatDeepSeek
+    model: deepseek-v4-flash-202605
+    api_base: https://tokenhub.tencentmaas.com/plan/v3
+    api_key: $VOLCENGINE_API_KEY
+    timeout: 600.0
+    max_retries: 2
+    supports_thinking: true
+    supports_vision: true
+    supports_reasoning_effort: true
+    when_thinking_enabled:
+      extra_body:
+        thinking:
+          type: enabled
+    when_thinking_disabled:
+      extra_body:
+        thinking:
+          type: disabled
+
+  - name: deepseek-v4-pro
+    display_name: DeepSeek-V4-Pro
+    use: agent_sdk.models.patched_deepseek:PatchedChatDeepSeek
+    model: deepseek-v4-pro-202606
+    api_base: https://tokenhub.tencentmaas.com/plan/v3
+    api_key: $VOLCENGINE_API_KEY
+    timeout: 600.0
+    max_retries: 2
+    supports_thinking: true
+    supports_vision: true
+    supports_reasoning_effort: true
+    when_thinking_enabled:
+      extra_body:
+        thinking:
+          type: enabled
+    when_thinking_disabled:
+      extra_body:
+        thinking:
+          type: disabled
+
+  # --- Claude 系列 (示例) ---
+  # - name: claude-sonnet
+  #   display_name: Claude Sonnet
+  #   use: langchain_anthropic:ChatAnthropic
+  #   model: claude-sonnet-4-5-20250929
+  #   api_key: $ANTHROPIC_API_KEY
+  #   max_tokens: 8192
+  #   supports_thinking: true
+  #   supports_vision: true
+  #   when_thinking_enabled:
+  #     thinking:
+  #       type: enabled
+
+  # --- OpenAI 兼容接口 (示例) ---
+  # - name: gpt-5
+  #   display_name: GPT-5
+  #   use: langchain_openai:ChatOpenAI
+  #   model: gpt-5
+  #   api_key: $OPENAI_API_KEY
+  #   request_timeout: 600.0
+  #   max_retries: 2
+  #   supports_vision: true
+
+# ============================================================================
+# Vision 图像理解配置
+# ============================================================================
+# 独立 view_image 工具使用一个固定的多模态模型理解图片内容，
+# 返回文字描述给主模型（主模型保持纯文本，不注入 base64）。
+# 未设置或引用的模型不存在时，回退到 models 中第一个 supports_vision: true
+# 的模型；若无任何 vision 模型，则 view_image 工具不可用。
+#
+#   model: 引用上方 models[].name，需 supports_vision: true
+vision:
+  model: glm-5.2
+
+# ============================================================================
+# Sandbox 沙箱配置
+# ============================================================================
+# 控制 agent 工具 (bash/文件读写) 的执行环境和安全隔离。
+#
+# provider: 沙箱后端实现
+#   auto   — 优先尝试 AioSandboxProvider (Docker 容器隔离)，
+#            不可用时回退到 LocalSandboxProvider (子进程)。
+#            推荐: 开发环境无需 Docker，生产环境有 Docker 自动用。
+#   local  — LocalSandboxProvider，直接在宿主机子进程中执行。
+#            无隔离，仅适合开发/单用户场景。
+#   docker — AioSandboxProvider，Docker 容器内执行。
+#            强隔离，生产推荐，需要 Docker 运行环境。
+#
+# workspace: 工作区根目录 (相对路径相对于 backend/ 目录)
+# bash_output_max_chars:    bash 输出截断字符数，0 表示不截断
+# read_file_output_max_chars: read_file 输出截断字符数，0 表示不截断
+#
+# ----------------------------------------------------------------------------
+# 多用户隔离 & DooD 路径翻译
+# ----------------------------------------------------------------------------
+# 沙箱挂载点统一为 ``{workspace}/users/{user_id}/threads/{thread_id}/``，
+# user_id 来自 JWT 的 ``login_user_key``，未绑定时 fallback 到 ``default``。
+#
+# 当网关以容器形式部署并通过挂载 Docker socket 调度沙箱容器时
+# (Docker-out-of-Docker, 简称 DooD)，需要设置环境变量
+# ``SKILLHUB_HOST_BASE_DIR`` 指向宿主机上与 ``workspace`` 对应的真实路径：
+#
+#   - 容器内 ``workspace: ../agent-test`` 解析为 ``/data/agent-test``
+#   - 宿主机同一目录的真实路径为 ``/var/lib/skillhub/agent-test``
+#   - 启动网关容器时设置 ``SKILLHUB_HOST_BASE_DIR=/var/lib/skillhub/agent-test``
+#
+# DooD 部署下未设置该变量会导致 ``docker run`` 报
+# "invalid mount configuration"，因为 Docker daemon 看到的容器内路径
+# 不存在于宿主机。
+#
+# 本地开发 / 单机部署 / 不用 DooD 的环境可省略 — 自动 fallback 到
+# ``workspace`` 路径，不影响功能。
+# ============================================================================
+
+sandbox:
+  provider: auto
+  workspace:
+    ../agent-test
+
+    # ── K8s Provisioner ──────────────────────────────────────────────────
+  # 为空时使用 LocalContainerBackend（本地 Docker 直接管理容器）。
+  # 设置为 provisioner 的 URL 后使用 RemoteSandboxBackend → K8s Pod：
+  #   provisioner_url: http://provisioner:8002   # CCE 集群内 Service DNS
+  provisioner_url: ''
+
+  # ── 常驻 Pod 池（仅 K8s provisioner 模式生效）────────────────────────
+  # CCE Autopilot 无镜像缓存/预热，每次冷启动拉镜像需 1–2 分钟。开启池化后
+  # backend 复用固定的常驻沙箱 Pod（由 provisioner 启动时预热 pool-0 … pool-N-1），
+  # 消除 agent 执行路径上的镜像拉取等待。
+  #   size:          常驻 Pod 数量（0 = 关闭池化）
+  #   lease_timeout: 池满时新请求排队等待的最长秒数，超时返回错误
+  # 注意：size 需与 provisioner 的环境变量 SANDBOX_POOL_SIZE 保持一致，否则
+  # 超出预热数量的槽位在首次使用时仍会冷启动拉镜像，池化收益打折扣。
+  pool:
+    size: 3
+    lease_timeout: 60
+
+  bash_output_max_chars: 50000
+  read_file_output_max_chars: 50000
+
+  # ── Sandbox 就绪等待超时（秒）───────────────────────────────────────
+  # 仅对 AioSandboxProvider 生效。K8s provisioner 模式下 Pod 创建
+  # （调度 + 镜像拉取 + 容器启动 + 就绪探测）可能需要 2 分钟以上。
+  # 默认 180 秒，本地 Docker 不受影响（秒级就绪）。
+  # readiness_timeout: 180
+
+# ============================================================================
+# Skills 技能配置
+# ============================================================================
+# 技能是扩展 agent 能力的知识包，每个 skill 目录下包含 SKILL.md 文件。
+# 技能通过 `read_skill` 工具直接从宿主机文件系统加载，不经过 sandbox 容器。
+#
+# path: skills 目录路径 (相对路径相对于 backend/ 目录)
+# ============================================================================
+
+skills:
+  path: ./skills
+
+# ============================================================================
+# Checkpointer 对话持久化配置
+# ============================================================================
+# 持久化 LangGraph agent 的对话状态，使对话在服务重启后仍然可恢复。
+#
+# type: 存储后端类型
+#   memory   — 内存存储，进程重启后数据丢失 (仅开发/测试)
+#   sqlite   — 本地 SQLite 文件存储，单节点部署
+#   postgres — PostgreSQL 数据库，生产多节点部署
+#
+# connection_string:
+#   - type=sqlite 时填文件路径，如 "checkpoints.db" 或 ":memory:"
+#   - type=postgres 时填数据库 DSN，如 "$DATABASE_URL"
+#     格式: postgresql+asyncpg://user:password@host:5432/dbname
+#   - type=memory 时此字段忽略
+#
+# 注意: 使用 postgres 需要安装驱动:
+#   uv sync --extra postgres
+#   (或在 pyproject.toml 中已有 langgraph-checkpoint-postgres + asyncpg)
+# ============================================================================
+
+checkpointer:
+  type: postgres
+  connection_string: $DATABASE_URL
+
+# ============================================================================
+# Memory 长期记忆配置
+# ============================================================================
+# 自动从对话中提取用户偏好/事实，跨会话持久化，下次对话时注入到系统提示中。
+#
+# enabled:                   是否启用长期记忆功能
+# storage_path:              记忆存储文件路径 (相对 backend/ 目录)
+# debounce_seconds:          更新后的防抖等待时间，避免频繁写入
+# max_facts:                 最多存储多少条事实
+# fact_confidence_threshold: 事实提取置信度阈值 (0.0 ~ 1.0)
+# injection_enabled:         是否将记忆注入到系统提示中
+# max_injection_tokens:      注入记忆的最大 token 数
+# ============================================================================
+
+memory:
+  enabled: false
+  storage_path: memory.json
+  debounce_seconds: 30
+  max_facts: 100
+  fact_confidence_threshold: 0.7
+  injection_enabled: true
+  max_injection_tokens: 2000
+
+# ============================================================================
+# Summarization 对话摘要配置
+# ============================================================================
+# 当对话 token 数达到阈值时，自动将历史对话压缩为摘要，避免超出模型上下文窗口。
+#
+# enabled:         是否启用摘要功能
+# trigger_tokens:  触发摘要的 token 数阈值
+# keep_messages:   摘要后保留最近 N 条消息不压缩
+# ============================================================================
+
+summarization:
+  enabled: false
+  trigger_tokens: 15564
+  keep_messages: 10
+
+# ============================================================================
+# Title 自动标题配置
+# ============================================================================
+# 在对话开始时自动生成标题。
+#
+# enabled:   是否启用自动标题
+# max_words: 标题最大单词数
+# max_chars: 标题最大字符数
+# ============================================================================
+
+title:
+  enabled: false
+  max_words: 6
+  max_chars: 60
+
+# ============================================================================
+# Subagents 子代理配置
+# ============================================================================
+# 允许 agent 将复杂任务委派给子代理并行执行。
+#
+# 子代理在后台执行，主代理等待结果返回后继续。
+# 内置角色: general-purpose (通用) 和 bash (命令执行)。
+#
+# enabled:          是否启用子代理功能
+# timeout_seconds:  子代理执行超时时间 (秒)
+#
+# roles:  (可选) 自定义子代理角色
+#   <role-name>:
+#     description:    角色描述，帮助 LLM 判断何时委派给此角色
+#     system_prompt:  子代理的系统提示
+#     tools:          允许使用的工具名列表，null 表示继承父代理全部工具
+#     disallowed_tools: 禁止使用的工具名列表 (默认 ["task"]，防止无限嵌套)
+#     skills:         加载的技能列表，null 表示继承全部启用技能
+#     model:          使用的模型，"inherit" 表示使用父代理的模型
+#     max_turns:      最大对话轮数 (默认 50)
+#     timeout_seconds: 执行超时秒数 (默认 900)
+#
+# 示例 — 添加一个代码审查角色:
+#
+#   subagents:
+#     enabled: true
+#     timeout_seconds: 900
+#     roles:
+#       code-reviewer:
+#         description: "代码审查专家，对代码进行安全性和质量审查"
+#         system_prompt: |
+#           你是一个代码审查专家。审查代码时关注:
+#           1. 安全问题 (注入、XSS、权限绕过)
+#           2. 代码质量问题 (可读性、性能、可维护性)
+#           3. 最佳实践违规
+#           4. 逻辑错误和边界情况
+#           返回结构化的审查报告。
+#         tools: ["bash", "ls", "read_file", "glob", "grep"]
+#         max_turns: 60
+#
+# ============================================================================
+
+subagents:
+  enabled: false
+  timeout_seconds: 900
+
+# ============================================================================
+# MCP Servers 配置 (Model Context Protocol)
+# ============================================================================
+# 通过 MCP 协议接入外部工具服务。agent 启动时自动加载已启用的服务器。
+# 工具名会自动加上服务器名前缀以避免冲突 (例如 github 服务器的工具名会变成 github_xxx)。
+#
+# 每个服务器支持的字段:
+#   type:    传输类型 — stdio (本地子进程) / sse (远程 SSE, GET) /
+#            streamable_http (远程 Streamable HTTP, POST) / http (同 streamable_http)
+#   enabled: 是否启用 (false 的服务器会被跳过)
+#
+# stdio 专用字段 (type=stdio):
+#   command: 启动命令 (必填)
+#   args:    命令行参数列表 (可选，默认 [])
+#   env:     环境变量 (可选，默认 {})
+#
+# sse / streamable_http / http 专用字段:
+#   url:     服务器 URL (必填)
+#   headers: HTTP 请求头 (可选，默认 {})
+#
+# 通用字段:
+#   tool_timeout: 单次工具调用超时秒数 (可选，默认无超时)，
+#                 超时后 agent 收到错误提示，不会卡死
+#
+# OAuth 认证 (仅 sse / streamable_http / http，可选):
+#   oauth:
+#     enabled:        是否启用 OAuth
+#     token_url:      Token 端点 URL (必填)
+#     grant_type:     授权类型 — client_credentials / refresh_token
+#     client_id:      客户端 ID (client_credentials 必填)
+#     client_secret:  客户端密钥 (client_credentials 必填)
+#     refresh_token:  刷新令牌 (refresh_token 必填)
+#     scope:          OAuth 作用域 (可选)
+#     audience:       OAuth 受众 (可选)
+#
+# 环境变量用 $VAR 语法引用，启动时自动从 .env 解析。
+# ============================================================================
+
+mcpServers: {}
+  #
+  # --- 示例 1: stdio 本地 MCP 服务器 ---
+  # filesystem:
+  #   type: stdio
+  #   command: npx
+  #   args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
+  #   tool_timeout: 30.0
+  #   enabled: true
+  #
+  # --- 示例 2: SSE 远程 MCP 服务器 (GET 请求) ---
+  # remote-tools:
+  #   type: sse
+  #   url: https://your-mcp-server.com/sse
+  #   headers:
+  #     X-API-Key: "$MCP_API_KEY"
+  #   tool_timeout: 60.0
+  #   enabled: true
+  #
+  # --- 示例 2b: Streamable HTTP 远程 MCP 服务器 (POST 请求, 2025 规范) ---
+  # streamable-server:
+  #   type: streamable_http
+  #   url: https://your-mcp-server.com/mcp
+  #   headers:
+  #     Authorization: "Bearer $MCP_API_KEY"
+  #   tool_timeout: 30.0
+  #   enabled: true
+  #
+  # --- 示例 3: SSE + OAuth 认证 ---
+  # oauth-server:
+  #   type: sse
+  #   url: https://your-mcp-server.com/sse
+  #   tool_timeout: 60.0
+  #   enabled: true
+  #   oauth:
+  #     enabled: true
+  #     token_url: https://auth.example.com/oauth/token
+  #     grant_type: client_credentials
+  #     client_id: "$OAUTH_CLIENT_ID"
+  #     client_secret: "$OAUTH_CLIENT_SECRET"
+  #     scope: "mcp:read"

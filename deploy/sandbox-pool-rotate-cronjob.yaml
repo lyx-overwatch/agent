@@ -1,0 +1,65 @@
+# ============================================================================
+# Sandbox Pool 定时轮换 CronJob
+# ============================================================================
+# 每天凌晨（CST）2:00 删除所有常驻沙箱 Pod + Service（sandbox-resident=true）。
+# provisioner 的健康巡检循环会在下一轮（≤60s）发现 Service 缺失，立即重建全新
+# Pod + Service —— 全新容器文件系统 + 全新 emptyDir，从根源上清掉上一个租户
+# 在 /mnt/user-data、/tmp、HOME 乃至系统目录的任何写入。
+#
+# Service 也打了 sandbox-resident label（见 provisioner 的 _build_service），
+# 所以下面一条 kubectl delete pod,svc 能同时删掉两者，重建只需单轮巡检。
+#
+# 为什么用 CronJob 而非「按存活时长轮换」：
+#   - 轮换发生在凌晨 2 点低峰期，对用户零感知；
+#   - 时间精确可控，不依赖 Pod 创建时刻。
+#
+# 时区说明：spec.timeZone: Asia/Shanghai 让 schedule 按上海时区解析，
+#   '0 2 * * *' 即上海时间凌晨 2:00（低峰期）。timeZone 要求 K8s ≥ 1.27（CCE
+#   均满足）；若集群更老，删掉 timeZone 并改回 UTC 表示：schedule '0 18 * * *'。
+#
+# 镜像说明：bitnami/kubectl 已从 Docker Hub 下架（Bitnami 2025-08 目录迁移到
+#   bitnamilegacy/*），且 CCE 节点无法拉取公开 Docker Hub。故改用内网 SWR 的
+#   kubectl 镜像（与其余 Deployment 同源），并加 imagePullSecrets 拉取。
+#   首次需先把 kubectl 镜像推入 SWR，见 README.md「CronJob 镜像准备」。
+# ============================================================================
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sandbox-pool-rotate
+  namespace: fintech-aigc-dev
+  labels:
+    app: sandbox-pool-rotate
+spec:
+  schedule: '0 2 * * *'   # 上海时间（Asia/Shanghai）凌晨 2:00
+  timeZone: Asia/Shanghai
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      # 跑完 1 小时后自动清理 Job 的 Pod，避免残留
+      ttlSecondsAfterFinished: 3600
+      template:
+        spec:
+          # 复用 provisioner 的 ServiceAccount（已授权 pods/services 删除）
+          serviceAccountName: skillhub-provisioner
+          imagePullSecrets:
+            - name: default-secret
+          restartPolicy: OnFailure
+          # 防止 kubectl delete 挂在不可达的 API Server 上，长期卡住后
+          # concurrencyPolicy: Forbid 会永远阻塞后续轮换。
+          activeDeadlineSeconds: 120
+          backoffLimit: 2
+          containers:
+            - name: rotate
+              image: swr.cn-south-1.myhuaweicloud.com/fintech-aigc/kubectl:1.32.3
+              imagePullPolicy: IfNotPresent
+              command:
+                - kubectl
+                - delete
+                - pod,svc
+                - -n
+                - fintech-aigc-dev
+                - -l
+                - sandbox-resident=true
+                - --ignore-not-found=true
