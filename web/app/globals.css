@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+/* 对齐 dify 原项目 tailwind.config.js 的 `mobile: { max: '640px' }` 断点 */
+@custom-variant mobile {
+  @media (max-width: 640px) {
+    @slot;
+  }
+}
+
+body {
+  background: #fff;
+  color: #171717;
+}
