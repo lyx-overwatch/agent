@@ -23,6 +23,8 @@ class VerifyResponse(BaseModel):
     user_id: str
     is_new_user: bool  # 是否本次新注册
     role: str  # "user" | "admin"，前端据此决定是否展示审核入口
+    email: str | None = None  # 邮箱用户有值；Java legacy 用户为 NULL
+    username: str | None = None  # 邮箱用户名（email 前缀）或 user_id
 
 
 @router.post("/register", response_model=AuthResponse, status_code=201)
@@ -51,4 +53,10 @@ async def verify_token(user_id: str = Depends(check_is_authenticated)):
         await db.commit()
 
     logger.info("User {} verified (new={})", user.id, is_new)
-    return VerifyResponse(user_id=user.id, is_new_user=is_new, role=user.role)
+    return VerifyResponse(
+        user_id=user.id,
+        is_new_user=is_new,
+        role=user.role,
+        email=user.email,
+        username=user.username,
+    )

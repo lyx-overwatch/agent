@@ -58,6 +58,8 @@ export interface VerifyResponse {
   user_id: string;
   is_new_user: boolean;
   role: string; // "user" | "admin"，前端据此决定是否展示审核入口
+  email: string | null;
+  username: string | null;
 }
 
 export interface AuthUser {

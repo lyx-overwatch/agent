@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { PanelLeftOpen, Plus, Upload } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { AlertError } from '../lib/alert';
 import Modal from '@/components/base/modal';
 import {
@@ -12,7 +12,6 @@ import {
   type ApiSkillItem,
 } from '../api/skillhub';
 import { useSkillhubChat } from '../components/skillhub-chat';
-import { useSkillhubUI } from '../components/skillhub-ui';
 import SkillCard from '../components/SkillCard';
 import UploadSkillModal from '../components/UploadSkillModal';
 import SkillDetailModal from '../components/SkillDetailModal';
@@ -80,7 +79,6 @@ function Grid({ empty, children }: { empty: boolean; children: React.ReactNode }
 export default function SkillsPage() {
   const router = useRouter();
   const { role } = useSkillhubChat();
-  const { sidebarCollapsed, setSidebarCollapsed } = useSkillhubUI();
   const isAdmin = role === 'admin';
 
   const [tab, setTab] = useState<Tab>('market');
@@ -286,16 +284,6 @@ export default function SkillsPage() {
         <div className="max-w-7xl mx-auto px-4 py-6">
           {/* Tab 栏 */}
           <div className="flex items-center gap-2">
-            {sidebarCollapsed && (
-              <button
-                type="button"
-                title="展开侧边栏"
-                onClick={() => setSidebarCollapsed(false)}
-                className="hidden lg:inline-flex p-2 -ml-2 hover:bg-gray-100 rounded-md transition-colors"
-              >
-                <PanelLeftOpen className="w-4 h-4 text-gray-600" />
-              </button>
-            )}
             <button type="button" className={tabBtn(tab === 'market')} onClick={() => handleTabChange('market')}>
               技能广场
             </button>

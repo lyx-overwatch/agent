@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Menu, PanelLeftOpen } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { useSkillhubUI } from './skillhub-ui';
 
 interface Props {
@@ -10,26 +10,15 @@ interface Props {
   right?: ReactNode;
 }
 
-/** 顶部标题栏（桌面：展开侧栏按钮 + 标题 + 右侧槽；移动：菜单 + 标题） */
+/** 顶部标题栏（桌面：标题 + 右侧槽；移动：菜单 + 标题） */
 export default function PageHeader({ title, right }: Props) {
-  const { sidebarCollapsed, setSidebarCollapsed, setMobileOpen } =
-    useSkillhubUI();
+  const { setMobileOpen } = useSkillhubUI();
 
   return (
     <>
       {/* 桌面端 */}
       <div className="hidden lg:flex h-14 items-center justify-between px-6 bg-white flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          {sidebarCollapsed && (
-            <button
-              type="button"
-              title="展开侧边栏"
-              onClick={() => setSidebarCollapsed(false)}
-              className="p-2 -ml-2 hover:bg-gray-100 rounded-md flex-shrink-0"
-            >
-              <PanelLeftOpen className="w-4 h-4 text-gray-600" />
-            </button>
-          )}
           <h1 className="text-base font-semibold text-gray-900 truncate">
             {title}
           </h1>

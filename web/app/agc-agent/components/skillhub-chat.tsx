@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from 'react';
 import { AlertError } from '../lib/alert';
-import { skillhubApi } from '../api/skillhub';
+import { skillhubApi, type AuthUser } from '../api/skillhub';
 import { mapConversation, mapMessages, mapModel, mapWireEvent } from '../api/mappers';
 import type { Attachment, Conversation, Message, Model } from '../types';
 import { chatReducer, truncateTitle, type ChatState } from '../lib/chatReducer';
@@ -72,6 +72,8 @@ interface SkillhubChatContextValue {
   loadConversation: (conversationId: string) => void;
   /** 当前用户角色（verify 返回），skills 页据此显示「审核」入口 */
   role: string | null;
+  /** 当前登录用户（verify 返回，含 email / username），侧边栏据此展示用户信息 */
+  user: AuthUser | null;
 }
 
 const SkillhubChatContext = createContext<SkillhubChatContextValue | null>(null);
@@ -84,6 +86,7 @@ export function SkillhubChatProvider({ children }: { children: ReactNode }) {
   const [modelName, setModelName] = useState('');
   const [thinking, setThinking] = useState(true);
   const [role, setRole] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const streamingConvRef = useRef<string | null>(null);
   const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -144,7 +147,15 @@ export function SkillhubChatProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         const res = await skillhubApi.verify();
-        if (!cancelled) setRole(res.role);
+        if (!cancelled) {
+          setRole(res.role);
+          setUser({
+            user_id: res.user_id,
+            email: res.email,
+            username: res.username,
+            role: res.role,
+          });
+        }
       } catch (e) {
         console.warn('[skillhub] verify failed', e);
       }
@@ -313,6 +324,7 @@ export function SkillhubChatProvider({ children }: { children: ReactNode }) {
       deleteConversation,
       loadConversation,
       role,
+      user,
     }),
     [
       state.conversations,
@@ -329,6 +341,7 @@ export function SkillhubChatProvider({ children }: { children: ReactNode }) {
       deleteConversation,
       loadConversation,
       role,
+      user,
     ],
   );
 

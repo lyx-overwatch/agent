@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  ChevronUp,
   LogOut,
   MessageCircle,
   PanelLeftClose,
+  PanelLeftOpen,
   Sparkles,
   Trash2,
 } from 'lucide-react';
@@ -27,9 +30,25 @@ export default function ConversationSidebar() {
   const router = useRouter();
   const { sidebarCollapsed, setSidebarCollapsed, mobileOpen, setMobileOpen } =
     useSkillhubUI();
-  const { conversations, conversationsLoading, deleteConversation } =
+  const { conversations, conversationsLoading, deleteConversation, user } =
     useSkillhubChat();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // 点击用户菜单外部时收起
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [userMenuOpen]);
+
+  const displayName = user?.email || user?.username || '用户';
 
   const isNavActive = (href: string) =>
     href === '/agc-agent' ? pathname === '/agc-agent' : pathname.startsWith(href);
@@ -37,6 +56,7 @@ export default function ConversationSidebar() {
 
   const handleCollapse = () => {
     setMobileOpen(false);
+    setUserMenuOpen(false);
     setSidebarCollapsed(true);
   };
 
@@ -69,42 +89,66 @@ export default function ConversationSidebar() {
       )}
       <aside
         className={classNames(
-          'fixed lg:static inset-y-0 left-0 z-50 w-60 bg-white border-r border-gray-200 flex flex-col transition-transform duration-200',
+          'fixed lg:static inset-y-0 left-0 z-50 w-60 bg-white border-r border-gray-200 flex flex-col transition-[width,transform] duration-200',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
           'lg:translate-x-0',
-          sidebarCollapsed && 'lg:hidden',
+          sidebarCollapsed ? 'lg:w-[52px]' : 'lg:w-60',
         )}
       >
-        {/* Logo + 退出 + 收起 */}
-        <div className="h-12 flex items-center justify-between px-4">
+        {/* 顶部：展开态 Logo + 收起；折叠态仅展开按钮 */}
+        <div
+          className={classNames(
+            'h-12 flex items-center justify-between px-4',
+            sidebarCollapsed && 'lg:justify-center lg:px-2',
+          )}
+        >
           <Link
-            href="/"
-            className="flex items-center hover:opacity-80 transition-opacity"
+            href="/agc-agent"
+            className={classNames(
+              'flex items-center hover:opacity-80 transition-opacity',
+              sidebarCollapsed && 'lg:hidden',
+            )}
           >
-            <span className="text-base font-bold text-gray-900">Heyu Agent</span>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 20 20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="pointer-events-none text-gray-900 shrink-0"
+            >
+              <path
+                d="M17.3481 3.19781C17.9163 3.19781 18.3774 3.65892 18.3774 4.22711V13.1714C18.3773 13.5007 18.2292 13.8127 17.9741 14.0211L14.9419 16.4966C14.7461 16.6564 14.5012 16.7436 14.2485 16.7437H2.73975C2.17168 16.7437 1.71066 16.2834 1.71045 15.7154V7.03864C1.71045 6.70834 1.85946 6.39546 2.11572 6.18707L5.48877 3.44391C5.6844 3.28484 5.92902 3.19785 6.18115 3.19781H17.3481ZM6.69971 5.25055C6.57403 5.25049 6.45172 5.2936 6.354 5.37262L3.98779 7.28668C3.85899 7.39084 3.78371 7.54779 3.78369 7.71344V14.3384C3.78369 14.5278 3.93804 14.6812 4.12744 14.6812H5.82568V11.1197C5.82568 10.8167 6.07147 10.5709 6.37451 10.5709H7.67725C7.98028 10.5709 8.22607 10.8167 8.22607 11.1197V14.6812H9.46045V11.1197C9.46045 10.8168 9.70638 10.571 10.0093 10.5709H11.313C11.6159 10.571 11.8618 10.8167 11.8618 11.1197V14.6812H13.7065C13.8327 14.6812 13.9554 14.6378 14.0532 14.5582L16.1167 12.8795C16.2447 12.7753 16.3197 12.6187 16.3198 12.4537V5.59821C16.3198 5.409 16.1662 5.25572 15.9771 5.25543L6.69971 5.25055Z"
+                fill="currentColor"
+              />
+            </svg>
           </Link>
-          <div className="flex items-center">
-            <button
-              type="button"
-              title="退出登录"
-              onClick={handleLogout}
-              className="p-2 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              <LogOut className="w-4 h-4 text-gray-600" />
-            </button>
-            <button
-              type="button"
-              title="收起侧边栏"
-              onClick={handleCollapse}
-              className="p-2 -mr-2 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              <PanelLeftClose className="w-4 h-4 text-gray-600" />
-            </button>
-          </div>
+          <button
+            type="button"
+            title="收起侧边栏"
+            onClick={handleCollapse}
+            className={classNames(
+              'p-2 -mr-2 flex items-center justify-center hover:bg-gray-100 rounded-md transition-colors',
+              sidebarCollapsed && 'lg:hidden',
+            )}
+          >
+            <PanelLeftClose className="w-4 h-4 text-gray-600" />
+          </button>
+          <button
+            type="button"
+            title="展开侧边栏"
+            onClick={() => setSidebarCollapsed(false)}
+            className={classNames(
+              'hidden p-2 hover:bg-gray-100 rounded-md transition-colors',
+              sidebarCollapsed && 'lg:inline-flex',
+            )}
+          >
+            <PanelLeftOpen className="w-4 h-4 text-gray-600" />
+          </button>
         </div>
 
-        {/* 导航 */}
-        <nav className="px-3 py-3 space-y-1">
+        {/* 导航（折叠时仅图标居中） */}
+        <nav className={classNames('px-3 py-3 space-y-1', sidebarCollapsed && 'lg:px-1')}>
           {NAV.map((item) => {
             const active = isNavActive(item.href);
             const Icon = item.icon;
@@ -112,22 +156,34 @@ export default function ConversationSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                title={item.label}
                 className={classNames(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                  'flex items-center rounded-md text-sm font-medium transition-colors',
+                  sidebarCollapsed
+                    ? 'lg:justify-center lg:px-0 py-2'
+                    : 'gap-3 px-3 py-2',
                   active
                     ? 'bg-gray-100 text-gray-900'
                     : 'text-gray-600 hover:bg-gray-50',
                 )}
               >
-                <Icon className="w-4 h-4" />
-                {item.label}
+                <Icon className="w-4 h-4 shrink-0" />
+                <span className={classNames(sidebarCollapsed && 'lg:hidden')}>
+                  {item.label}
+                </span>
               </Link>
             );
           })}
         </nav>
 
-        {/* 会话列表 */}
-        <div className={`flex-1 overflow-y-auto px-3 py-2 space-y-1 ${s.skillhubScroll}`}>
+        {/* 会话列表（折叠时隐藏） */}
+        <div
+          className={classNames(
+            'flex-1 overflow-y-auto px-3 py-2 space-y-1',
+            s.skillhubScroll,
+            sidebarCollapsed && 'lg:hidden',
+          )}
+        >
           <div className="text-xs text-gray-400 mb-2 px-3">最近会话</div>
           {conversations.map((c) => {
             const active = isConvActive(c.id);
@@ -171,6 +227,56 @@ export default function ConversationSidebar() {
               <p className="px-3 py-2 text-xs text-gray-400">暂无会话</p>
             )
           )}
+        </div>
+
+        {/* 底部用户信息（折叠时仅头像，点击展开侧栏） */}
+        <div ref={userMenuRef} className="relative border-t border-gray-200 mt-auto">
+          {userMenuOpen && !sidebarCollapsed && (
+            <div className="absolute bottom-full left-2 right-2 mb-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10">
+              <button
+                type="button"
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  handleLogout();
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                退出登录
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (sidebarCollapsed) {
+                setSidebarCollapsed(false);
+              } else {
+                setUserMenuOpen((v) => !v);
+              }
+            }}
+            className={classNames(
+              'w-full flex items-center hover:bg-gray-50 transition-colors',
+              sidebarCollapsed ? 'lg:justify-center lg:px-0 py-3' : 'gap-3 px-4 py-3',
+            )}
+          >
+            <Image
+              src="/avator.png"
+              alt="用户头像"
+              width={32}
+              height={32}
+              className="rounded-full shrink-0"
+            />
+            <span className={classNames('flex-1 min-w-0 text-left', sidebarCollapsed && 'lg:hidden')}>
+              <span className="block text-sm text-gray-900 truncate">{displayName}</span>
+            </span>
+            <ChevronUp
+              className={classNames(
+                'w-4 h-4 text-gray-400 shrink-0',
+                sidebarCollapsed && 'lg:hidden',
+              )}
+            />
+          </button>
         </div>
       </aside>
 
