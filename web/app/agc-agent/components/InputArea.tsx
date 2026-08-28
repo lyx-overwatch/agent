@@ -10,7 +10,6 @@ import { skillhubApi, type ApiAvailableSkillItem } from '../api/skillhub';
 import { originMetaOf } from '../lib/skill';
 import AttachmentChip from './AttachmentChip';
 import ModelSelector from './ModelSelector';
-import ThinkingToggle from './ThinkingToggle';
 import { useSkillhubChat } from './skillhub-chat';
 
 // @ 关键词字符：英文/数字/下划线/连字符 + 中日韩汉字（U+4E00–U+9FFF），支持「@中文」匹配
@@ -269,7 +268,7 @@ export default function InputArea({ models, conversationId, placeholder, onAfter
         }}
         onKeyDown={handleKeyDown}
         onBlur={() => setShowSkillMenu(false)}
-        className="w-full px-5 pt-4 pb-2 text-base text-gray-800 placeholder-gray-400 outline-none resize-none bg-transparent"
+        className="w-full px-5 pt-4 pb-2 text-[14px] text-gray-800 placeholder-gray-400 outline-none resize-none bg-transparent"
       />
 
       {showSkillMenu && filteredSkills.length > 0 && (
@@ -306,11 +305,13 @@ export default function InputArea({ models, conversationId, placeholder, onAfter
 
       <div className="flex items-center justify-between px-3 pb-2">
         <div className="flex items-center gap-1.5">
-          <ModelSelector models={models} value={modelName} onChange={handleModelChange} />
-          <ThinkingToggle
-            enabled={thinking}
-            locked={thinkingLocked}
-            onToggle={() => setThinking(!thinking)}
+          <ModelSelector
+            models={models}
+            value={modelName}
+            onChange={handleModelChange}
+            thinkingEnabled={thinking}
+            thinkingLocked={thinkingLocked}
+            onToggleThinking={() => setThinking(!thinking)}
           />
           <label
             title="上传附件"
@@ -331,8 +332,8 @@ export default function InputArea({ models, conversationId, placeholder, onAfter
           disabled={sending || (!isStreaming && !hasContent)}
           onClick={handleToggleStream}
           className={classNames(
-            'w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors disabled:bg-gray-200 disabled:cursor-not-allowed',
-            isStreaming ? 'bg-red-500 hover:bg-red-600' : 'bg-[#0072ff] hover:bg-[#0056cc]',
+            'w-8 h-8 rounded-full flex items-center justify-center text-white transition-colors disabled:bg-gray-200 disabled:cursor-not-allowed',
+            isStreaming ? 'bg-black hover:bg-neutral-800' : 'bg-[#0072ff] hover:bg-[#0056cc]',
           )}
         >
           {isStreaming ? (

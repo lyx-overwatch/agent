@@ -1,17 +1,23 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Lock } from 'lucide-react';
+import classNames from 'classnames';
 import type { Model } from '../types';
 
 interface Props {
   models: Model[];
   value: string;
   onChange: (name: string) => void;
+  /** 深度思考开关状态（移入菜单内展示） */
+  thinkingEnabled: boolean;
+  /** 锁定（模型强制开启深度思考，不可关闭） */
+  thinkingLocked: boolean;
+  onToggleThinking: () => void;
 }
 
-/** 模型下拉（展示 display_name，值为模型键 name） */
-export default function ModelSelector({ models, value, onChange }: Props) {
+/** 模型下拉（展示 display_name，值为模型键 name；菜单内含深度思考开关） */
+export default function ModelSelector({ models, value, onChange, thinkingEnabled, thinkingLocked, onToggleThinking }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -53,9 +59,36 @@ export default function ModelSelector({ models, value, onChange }: Props) {
                 }}
                 className="w-full flex items-center px-3 py-2 rounded-md hover:bg-gray-50 text-left"
               >
-                <span className="text-sm text-gray-700">{m.displayName ?? m.name}</span>
+                <span className="text-xs text-gray-700">{m.displayName ?? m.name}</span>
               </button>
             ))}
+          </div>
+          <div className="border-t border-gray-100 mt-1 pt-1">
+            <button
+              type="button"
+              disabled={thinkingLocked}
+              onClick={onToggleThinking}
+              title={thinkingLocked ? '深度思考（锁定）' : '深度思考'}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-gray-50 disabled:cursor-not-allowed"
+            >
+              <span className="flex items-center gap-1.5 text-xs text-gray-700">
+                深度思考
+                {thinkingLocked && <Lock className="w-3 h-3 text-gray-400" />}
+              </span>
+              <span
+                className={classNames(
+                  'w-[34px] h-5 rounded-[10px] relative transition-colors flex-shrink-0',
+                  thinkingEnabled ? 'bg-[#0072ff]' : 'bg-gray-300',
+                )}
+              >
+                <span
+                  className={classNames(
+                    'absolute w-4 h-4 rounded-full bg-white top-[2px] left-[2px] transition-transform',
+                    thinkingEnabled && 'translate-x-[14px]',
+                  )}
+                />
+              </span>
+            </button>
           </div>
         </div>
       )}

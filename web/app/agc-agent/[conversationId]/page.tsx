@@ -160,7 +160,7 @@ export default function ConversationDetailPage({
                 key={conversationId}
                 models={models}
                 conversationId={conversationId}
-                placeholder="输入消息，@ 指定技能 (Enter 发送, Shift+Enter 换行)"
+                placeholder="输入消息，@ 指定技能"
               />
             </div>
           </div>
