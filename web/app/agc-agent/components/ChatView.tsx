@@ -5,8 +5,8 @@ import { useContext } from 'use-context-selector';
 import classNames from 'classnames';
 import type { Message } from '../types';
 import MessageBubble from './MessageBubble';
-import ScrollArea from '@/components/ScrollArea';
-import ScrollAreaContext from '@/components/ScrollArea/context';
+import ScrollArea from '@/components/base/ScrollArea';
+import ScrollAreaContext from '@/components/base/ScrollArea/context';
 import QuestionAnchor from './QuestionAnchor';
 import s from '../skillhub.module.scss';
 

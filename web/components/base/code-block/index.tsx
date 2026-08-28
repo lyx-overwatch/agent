@@ -4,7 +4,7 @@ import SyntaxHighlighter from 'react-syntax-highlighter';
 import { atelierHeathLight } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import React from 'react';
 import copy from 'copy-to-clipboard';
-import { message } from 'antd';
+import { toast } from 'sonner';
 import { Copy } from 'lucide-react';
 
 interface Props {
@@ -25,7 +25,7 @@ export const CodeBlock = ({ language, children, ...rest }: Props) => {
           type='button'
           onClick={() => {
             copy(value);
-            message.success('复制成功');
+            toast.success('复制成功');
           }}
           className='flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 transition-colors'
         >

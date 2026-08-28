@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { message } from 'antd';
+import { toast } from 'sonner';
 import { PanelLeftOpen, Plus, Upload } from 'lucide-react';
 import { AlertError } from '../lib/alert';
-import Modal from '@/app/components/base/modal';
+import Modal from '@/components/base/modal';
 import {
   skillhubApi,
   type ApiBuiltinSkillItem,
@@ -172,7 +172,7 @@ export default function SkillsPage() {
   const handleAdd = async (skill: Skill) => {
     try {
       await skillhubApi.addSkill(skill.name);
-      message.success('已添加');
+      toast.success('已添加');
       loadMarketplace();
     } catch (e) {
       console.warn('[skillhub] addSkill failed', e);
@@ -187,7 +187,7 @@ export default function SkillsPage() {
   const handlePublish = async (skill: Skill) => {
     try {
       await skillhubApi.publishSkill(skill.name);
-      message.success('已提交审核');
+      toast.success('已提交审核');
       loadMine();
     } catch (e) {
       console.warn('[skillhub] publishSkill failed', e);
@@ -210,11 +210,11 @@ export default function SkillsPage() {
     try {
       if (confirmAction.kind === 'remove') {
         await skillhubApi.removeAddedSkill(confirmAction.skill.name);
-        message.success('已移除');
+        toast.success('已移除');
         loadMarketplace();
       } else {
         await skillhubApi.deleteSkill(confirmAction.skill.name);
-        message.success('已删除');
+        toast.success('已删除');
         loadMine();
         loadMarketplace();
       }
@@ -234,7 +234,7 @@ export default function SkillsPage() {
   const handleApprove = async (skill: Skill) => {
     try {
       await skillhubApi.reviewSkill(skill.name, 'approve');
-      message.success('已通过');
+      toast.success('已通过');
       loadPending();
       loadMarketplace();
     } catch (e) {
@@ -246,7 +246,7 @@ export default function SkillsPage() {
   const handleRejectSubmit = async (reason: string) => {
     if (!rejectSkill) return;
     await skillhubApi.reviewSkill(rejectSkill.name, 'reject', reason);
-    message.success('已驳回');
+    toast.success('已驳回');
     loadPending();
   };
 
@@ -260,7 +260,7 @@ export default function SkillsPage() {
       displayName || undefined,
       description || undefined,
     );
-    message.success(`已上传「${res.display_name}」为草稿，可到「我的技能」发布`);
+    toast.success(`已上传「${res.display_name}」为草稿，可到「我的技能」发布`);
     loadMine();
   };
 

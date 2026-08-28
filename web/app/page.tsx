@@ -2,7 +2,7 @@
 
 import { type FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { message } from 'antd';
+import { toast } from 'sonner';
 import { Eye, EyeOff, Lock, Mail, Sparkles } from 'lucide-react';
 import { skillhubApi } from './agc-agent/api/skillhub';
 
@@ -37,15 +37,15 @@ export default function Home() {
 
     const trimmed = email.trim().toLowerCase();
     if (!EMAIL_RE.test(trimmed)) {
-      message.error('请输入正确的邮箱地址');
+      toast.error('请输入正确的邮箱地址');
       return;
     }
     if (mode === 'register' && password.length < 8) {
-      message.error('密码至少 8 位');
+      toast.error('密码至少 8 位');
       return;
     }
     if (mode === 'register' && password !== confirm) {
-      message.error('两次输入的密码不一致');
+      toast.error('两次输入的密码不一致');
       return;
     }
 
@@ -58,7 +58,7 @@ export default function Home() {
       localStorage.setItem('token', res.access_token);
       router.replace('/agc-agent');
     } catch (err) {
-      message.error(err instanceof Error ? err.message : '操作失败，请稍后重试');
+      toast.error(err instanceof Error ? err.message : '操作失败，请稍后重试');
     } finally {
       setLoading(false);
     }

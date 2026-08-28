@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { message } from 'antd';
-import Modal from '@/app/components/base/modal';
+import { toast } from 'sonner';
+import Modal from '@/components/base/modal';
 import SkillTextArea from './SkillTextArea';
 import type { Skill } from '../types';
 
@@ -13,7 +13,7 @@ interface Props {
   onSubmit: (reason: string) => Promise<void>;
 }
 
-/** 驳回原因弹窗（项目封装 Modal + antd 输入框） */
+/** 驳回原因弹窗（项目封装 Modal + 原生 textarea） */
 export default function RejectSkillModal({ skill, onClose, onSubmit }: Props) {
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -25,7 +25,7 @@ export default function RejectSkillModal({ skill, onClose, onSubmit }: Props) {
   const handleSubmit = async () => {
     const r = reason.trim();
     if (!r) {
-      message.warning('驳回原因不能为空');
+      toast.warning('驳回原因不能为空');
       return;
     }
     setSubmitting(true);
@@ -34,7 +34,7 @@ export default function RejectSkillModal({ skill, onClose, onSubmit }: Props) {
       onClose();
     } catch (e) {
       console.warn('[skillhub] reviewSkill reject failed', e);
-      message.error('驳回失败');
+      toast.error('驳回失败');
     } finally {
       setSubmitting(false);
     }

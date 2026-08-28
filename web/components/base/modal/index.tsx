@@ -1,6 +1,6 @@
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
-import { XMarkIcon } from '@heroicons/react/24/solid';
+import { X } from 'lucide-react';
 import classNames from 'classnames';
 
 type IModal = {
@@ -95,7 +95,7 @@ export default function Modal({
                       closeClass
                     )}
                   >
-                    <XMarkIcon
+                    <X
                       className='w-6 h-6 text-[#171c1e]'
                       onClick={onClose}
                     />

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { message } from 'antd';
+import { toast } from 'sonner';
 import { FileArchive, X } from 'lucide-react';
 import SkillTextArea from './SkillTextArea';
 
@@ -29,7 +29,7 @@ export default function UploadSkillModal({ open, onClose, onUpload }: Props) {
 
   const handleUpload = async () => {
     if (!file) {
-      message.warning('请先选择 .zip / .skill / .md 文件');
+      toast.warning('请先选择 .zip / .skill / .md 文件');
       return;
     }
     setUploading(true);

@@ -1,9 +1,9 @@
 'use client';
 
 import { AlertCircle, AlertTriangle, Copy } from 'lucide-react';
-import { message as messageApi } from 'antd';
+import { toast } from 'sonner';
 import copy from 'copy-to-clipboard';
-import { Markdown } from '@/app/components/base/markdown';
+import { Markdown } from '@/components/base/markdown';
 import type { Message, MessageSegment } from '../types';
 import AttachmentChip from './AttachmentChip';
 import ThinkingCard from './ThinkingCard';
@@ -13,7 +13,7 @@ import s from '../skillhub.module.scss';
 function UserMessage({ message, anchorId }: { message: Message; anchorId?: string }) {
   const handleCopy = () => {
     copy(message.content ?? '');
-    messageApi.success('复制成功');
+    toast.success('复制成功');
   };
 
   return (

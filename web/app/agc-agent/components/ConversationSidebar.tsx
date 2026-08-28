@@ -14,7 +14,7 @@ import classNames from 'classnames';
 import s from '../skillhub.module.scss';
 import { useSkillhubChat } from './skillhub-chat';
 import { useSkillhubUI } from './skillhub-ui';
-import Modal from '@/app/components/base/modal';
+import Modal from '@/components/base/modal';
 
 const NAV = [
   { href: '/agc-agent', label: '工作台', icon: MessageCircle },
