@@ -40,7 +40,7 @@ function mapSkillItem(api: ApiSkillItem, own = false): Skill {
     name: api.name,
     displayName,
     description: api.description,
-    author: own ? '我' : api.author_name || 'SkillHub',
+    author: own ? '我' : api.author_name || 'Heyu Agent',
     color: hashColor(api.name),
     initial: initialOf(displayName),
     reviewStatus: (api.review_status as SkillReviewStatus) ?? null,

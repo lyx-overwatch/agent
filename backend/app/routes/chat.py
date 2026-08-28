@@ -335,7 +335,7 @@ async def serve_file(
     """Serve a file from the agent's workspace/outputs/uploads directories.
 
     Local storage: returns the file directly via FileResponse.
-    S3 storage: streams the object through SkillHub (proxied) so the browser
+    S3 storage: streams the object through Heyu Agent (proxied) so the browser
     stays on the same origin — OBS's endpoint is internal and not CORS-enabled,
     so a 302 to the pre-signed URL would be blocked by the browser.
     """
@@ -344,7 +344,7 @@ async def serve_file(
 
     storage = get_storage()
 
-    # ── S3/remote storage: proxy bytes through SkillHub ─────────────────
+    # ── S3/remote storage: proxy bytes through Heyu Agent ─────────────────
     # Do NOT 302-redirect to the OBS pre-signed URL: OBS's endpoint is an
     # internal address with no CORS headers, so a browser ``fetch`` following
     # the redirect would be blocked. Stream the object server-side instead so

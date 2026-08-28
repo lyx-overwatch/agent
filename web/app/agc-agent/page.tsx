@@ -40,7 +40,7 @@ function SkillhubPageInner() {
       <div className="absolute inset-0 flex items-center justify-center px-4">
         <div className="relative w-full max-w-2xl">
           <h1 className="absolute bottom-full left-0 right-0 mb-10 text-center text-2xl font-bold text-gray-900">
-            爱共创 Agent，让工作更简单
+            Heyu Agent，让工作更简单
           </h1>
           <InputArea
             models={models}

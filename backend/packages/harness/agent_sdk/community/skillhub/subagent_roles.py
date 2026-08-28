@@ -1,6 +1,6 @@
-"""SkillHub's built-in subagent role definitions.
+"""Heyu Agent's built-in subagent role definitions.
 
-These role definitions provide SkillHub's preset subagent types:
+These role definitions provide Heyu Agent's preset subagent types:
 ``general-purpose``, ``bash``, ``skill-scaffolder``, ``skill-tester``,
 and ``skill-reviewer``.
 
@@ -226,7 +226,7 @@ Do NOT use for: code review of non-skill code, general code quality checks."""
 def build_skillhub_registry(
     custom_roles: dict[str, dict] | None = None,
 ) -> DefaultSubagentRegistry:
-    """Build a SkillHub-flavoured subagent registry (built-in + optional custom roles).
+    """Build a Heyu Agent-flavoured subagent registry (built-in + optional custom roles).
 
     Built-in roles: ``general-purpose``, ``bash``, ``skill-scaffolder``,
     ``skill-tester``, ``skill-reviewer``.
@@ -238,7 +238,7 @@ def build_skillhub_registry(
 
     Returns:
         A :class:`~agent_sdk.subagents.default.DefaultSubagentRegistry`
-        populated with SkillHub's built-in subagent definitions.
+        populated with Heyu Agent's built-in subagent definitions.
     """
     registry = DefaultSubagentRegistry()
 

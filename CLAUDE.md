@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SkillHub is a multi-user AI Agent + Skill execution platform built on top of DeerFlow. The backend (`backend/`) is a FastAPI service that wraps a LangGraph agent with configurable skills (knowledge + tools). Authentication is delegated to an external Java system; the Java system issues JWT tokens (HMAC512/HS512 signed, with `login_user_key` claim containing userId). This project verifies those tokens and does NOT issue its own JWT or store passwords locally.
+Heyu Agent is a multi-user AI Agent + Skill execution platform built on top of DeerFlow. The backend (`backend/`) is a FastAPI service that wraps a LangGraph agent with configurable skills (knowledge + tools). Users register/login by email + password; the backend hashes the password (bcrypt) and issues its own HS512 JWT (with a `login_user_key` claim = user id). Legacy Java-issued tokens (same HS512 secret) remain compatible.
 
-DeerFlow provides the gateway, sandbox infrastructure, memory, summarization, and IM channel integrations. SkillHub adds the FastAPI layer with custom auth, skill management, and the LangGraph ReAct agent loop.
+DeerFlow provides the gateway, sandbox infrastructure, memory, summarization, and IM channel integrations. Heyu Agent adds the FastAPI layer with auth, skill management, and the LangGraph ReAct agent loop.
 
 ### Source Code Boundaries (Critical)
 
@@ -14,9 +14,9 @@ There are TWO separate codebases under `backend/` — know which one to modify:
 
 | Directory | Role | Modify? |
 |---|---|---|
-| `backend/packages/harness/agent_sdk/` | **SkillHub's own agent_sdk** — our agent runtime, community tools, sandbox | ✅ Yes |
+| `backend/packages/harness/agent_sdk/` | **Heyu Agent's own agent_sdk** — our agent runtime, community tools, sandbox | ✅ Yes |
 | `backend/deerflow_origin/` | **DeerFlow reference source** — for reference / understanding SDK behavior only | ❌ **NEVER** |
-| `backend/app/` | **SkillHub FastAPI application** — routes, services, agent config | ✅ Yes |
+| `backend/app/` | **Heyu Agent FastAPI application** — routes, services, agent config | ✅ Yes |
 
 When adding a new tool (e.g., web search), put it in `backend/packages/harness/agent_sdk/community/<tool-name>/tools.py`, following the same pattern as existing community tools. Then wire it in `backend/app/core/agent.py`.
 
@@ -168,16 +168,14 @@ This switch is **config-driven** (e.g., via `ENVIRONMENT` env var or Pydantic Se
 
 ## Authentication Flow
 
-Login (`POST /auth/login`) follows a three-step pattern:
-1. Forward credentials to the external Java auth URL (`java_auth_url` config) via httpx
-2. Upsert the user locally in the `users` table (no password stored — the `hashed_password` column was dropped in migration `b9f3a1c72d08`)
-3. Return the Java-issued JWT token directly (Python does NOT issue its own tokens)
+Users register/login by **email + password** (self-contained, no external system):
+- `POST /auth/register` — validates email/password, hashes the password with bcrypt, creates a user (`users.email` unique), and issues an access token.
+- `POST /auth/login` — looks up the user by email, verifies the bcrypt hash, checks `is_active`, and issues an access token.
+- `POST /auth/verify` — validates an existing token and auto-registers the user (first call), returning `user_id` / `role`.
 
-Java token format: `Header: {"alg": "HS512", "typ": "JWT"}`, `Claims: {"login_user_key": "<userId>", "timestamp": <epochMillis>}`. Signed with HMAC512 (HS512). No expiration.
+Token format (Python-issued): `Header: {"alg": "HS512", "typ": "JWT"}`, `Claims: {"login_user_key": "<user.id>", "iat": ..., "exp": ...}`. Signed with HMAC512 (HS512) using `SECRET_KEY`, expiring after `access_token_expire_minutes` (default 7 days). Legacy Java-issued tokens (same HS512 secret, no `exp`) remain compatible.
 
-All protected endpoints validate the Bearer token via `get_current_user` dependency (`app/core/dependencies.py`), which decodes the Java-issued JWT using HS512, extracts `login_user_key` as user_id, and looks up the user.
-
-**`app/auth/__init__.py`** is an **experimental stub** — it creates a Redis client, mocks Java token creation, and provides `check_is_authenticated()` that validates sessions against Redis. It is **not wired into the main application** and uses hardcoded `USER_ID = 'user123'`. The production auth path is through `app/core/auth.py` and `app/core/dependencies.py`.
+All protected endpoints validate the Bearer token via `get_current_user` dependency (`app/core/dependencies.py`), which decodes the JWT using HS512, extracts `login_user_key` as user_id, and looks up the user.
 
 ### API Routes
 
@@ -190,7 +188,9 @@ All protected endpoints validate the Bearer token via `get_current_user` depende
 | `GET /chat/files/{conversation_id}/info` | `routes/chat.py` | File metadata (size, MIME type, previewable flag) |
 | `GET /conversations` | `routes/conversations.py` | List all conversations ordered by recent activity |
 | `DELETE /conversations/{conversation_id}` | `routes/conversations.py` | Delete a conversation, its messages, and state logs |
-| `POST /auth/login` | `routes/auth.py` | Login → proxy to Java → upsert user → issue JWT |
+| `POST /auth/register` | `routes/auth.py` | Email register → create user → issue JWT |
+| `POST /auth/login` | `routes/auth.py` | Email login → verify password → issue JWT |
+| `POST /auth/verify` | `routes/auth.py` | Validate token + auto-register user, return `user_id`/`role` |
 | `GET /skills` | `routes/skills.py` | List all registered skill names |
 | `GET /health` | `main.py` | Health check (status, model_id, version) |
 
@@ -198,15 +198,15 @@ All protected endpoints validate the Bearer token via `get_current_user` depende
 
 PostgreSQL via asyncpg is **required** (no SQLite fallback in the current code). Default dev connection: `postgresql+asyncpg://postgres:qwer@localhost/agent`.
 
-Three tables via SQLModel + async SQLAlchemy:
-- **`users`**: `id`, `username` (unique), `email` (unique), `is_active`, `created_at` — no password column
+Key tables via SQLModel + async SQLAlchemy:
+- **`users`**: `id` (UUID for email-registered users; Java `login_user_key` for legacy), `username`, `email` (unique), `hashed_password` (bcrypt, nullable for legacy Java users), `role`, `is_active`, `created_at`
 - **`user_skills`**: Per-user skill enablement (`user_id` FK, `skill_name`, `enabled`)
 - **`runs`**: Agent execution metadata (`thread_id`, `status`, `created_at`); `user_id` FK is commented out
 
 ## Project Structure (Key Files)
 
 ```
-skill-hub/
+heyu-agent/
 ├── config.yaml              # DeerFlow runtime config (models, tools, sandbox, checkpointer, memory)
 ├── config.example.yaml      # Documented config template
 ├── backend/
@@ -253,8 +253,8 @@ skill-hub/
 - **LangChain** + **LangGraph**: Underlying agent framework used by agent-sdk (ReAct orchestration, checkpointing, streaming)
 - **FastAPI** + **uvicorn**: HTTP server with SSE streaming (sse-starlette no longer used — SSE is hand-rolled via StreamingResponse)
 - **SQLModel** + **asyncpg** + **Alembic**: ORM, async PostgreSQL, migrations
-- **httpx**: Async HTTP client for Java auth forwarding
-- **PyJWT** (jwt): JWT verification (HS512, matching Java HMAC512)
+- **httpx**: Async HTTP client (used by various integrations)
+- **PyJWT** (jwt): JWT sign & verify (HS512)
 - **redis** (redis-py): Async Redis client via `redis.asyncio` (used by IM channels; the experimental `app/auth/` stub has been removed)
 
 ## Phase 2 Roadmap
@@ -266,24 +266,9 @@ Planned upgrades not yet implemented:
 - Dynamic tool loading from `skills/*/tools.py`
 - Skill registration/upload API for admins
 
-## 前端开发与验证规则（重要）
+## 前端（Next.js，`web/`）
 
-> 本项目有两套前端，默认只在其中一套工作，**不要混淆**：
+前端是 Next.js 16 App Router 项目，位于 `web/`。工作台在 `web/app/agc-agent/`，登录/注册页在根路由 `web/app/page.tsx`（项目名 **Heyu Agent**，与 `dify-cmbc` 无关）。
 
-| 前端 | 路径 | 用途 | 何时用 |
-|---|---|---|---|
-| **调试页** | `frontend/debug-agent.html` | 单文件调试页，直连后端 API | **默认**——新增/改动功能都在这里验证测试 |
-| **迁移项目** | `dify-cmbc/web` | SkillHub → dify 的正式迁移（Next.js/React） | **仅当用户明确要求迁移**时才动 |
-
-- 默认做前端都在 `frontend/debug-agent.html`，**除非用户主动要求迁移到 Next.js 项目**。
-- **新增的功能，都要先在 `frontend/debug-agent.html` 验证测试通过**，再考虑是否迁移。
-- `debug-agent.html` 是纯 HTML + 内联 JS/CSS 单文件，不依赖构建；后端本地跑 `make dev`（端口 8001）即可联调。
-
-## Frontend 迁移协作规则（重要）
-
-> 涉及 SkillHub 前端迁移到 `dify-cmbc/web`（对齐文档见 `docs/move-to-cmbweb/`）的工作：
-
-- **开始实现前，必须先与用户对齐**：先复述理解 + 列出差异/疑问/待确认点，等用户补充细节并确认后再动手写代码；不要拿到任务就直接开工。
-- 迁移代码统一落在 `dify-cmbc/web/app/agc-agent/`（不是 `(commonLayout)` 下）。
-- 图标用 `lucide-react`，尽量与 `public/phase1/pages/*.html` 视觉/图标一致。
-- 不改动 `dify-cmbc/web` 原有功能：仅新增 `app/agc-agent/` 目录与必要依赖（如 lucide-react）。
+- 本地开发：`cd web && npm run dev`（默认 3000），后端跑 `make dev`（8001）；`/py/api/*` 通过 `next.config.ts` 反代到后端。
+- 前端设计语言：浅色、白卡片、`#0072ff` 主色（hover `#0056cc`）、lucide-react 图标。

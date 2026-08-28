@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SkillHub Agent Debugger</title>
+    <title>Heyu Agent Agent Debugger</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link
       rel="stylesheet"
@@ -1633,7 +1633,7 @@
               <div style="font-size:10px;color:var(--text2);padding:2px 0">📁 文件操作</div>
               <button
                 class="btn-sm btn-outline"
-                onclick="quickSend('在outputs目录下创建一个hello.txt文件，内容是：Hello from SkillHub!')"
+                onclick="quickSend('在outputs目录下创建一个hello.txt文件，内容是：Hello from Heyu Agent!')"
               >
                 📝 创建文件
               </button>
@@ -1700,7 +1700,7 @@
         <div class="chat-column">
           <div class="messages" id="messages">
             <div class="msg welcome">
-              <h3>👋 爱共创AIGC Agent</h3>
+              <h3>👋 Heyu Agent</h3>
               <p>选择左侧对话或开始新对话</p>
             </div>
           </div>
@@ -2380,7 +2380,7 @@ const token = () => getToken();
         const welcome = document.createElement('div');
         welcome.className = 'msg welcome';
         welcome.innerHTML =
-          '<h3>👋 爱共创AIGC Agent</h3><p>选择左侧对话或开始新对话</p>';
+          '<h3>👋 Heyu Agent</h3><p>选择左侧对话或开始新对话</p>';
         $('messages').appendChild(welcome);
         showInputArea();
       }
@@ -3836,7 +3836,7 @@ const token = () => getToken();
             console.warn('[file] resolve url failed:', err);
           }
 
-          // Download via a blob fetched through SkillHub (same-origin, carries
+          // Download via a blob fetched through Heyu Agent (same-origin, carries
           // the JWT header) — the previous download method.
           const blobUrl =
             _currentFile.blobUrl || (await fetchFileBlob(_currentFile.path));

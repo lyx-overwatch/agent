@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { PanelRight } from 'lucide-react';
 import ChatView from '../components/ChatView';
 import FilePreviewModal from '../components/FilePreviewModal';
@@ -23,8 +23,9 @@ const TERMINAL_STATUSES: ConversationStatus[] = ['completed', 'error', 'cancelle
 export default function ConversationDetailPage({
   params,
 }: {
-  params: { conversationId: string };
+  params: Promise<{ conversationId: string }>;
 }) {
+  const { conversationId } = use(params);
   const { conversations, messagesOf, streaming, models, loadingMessagesId, loadConversation } =
     useSkillhubChat();
   const [fileCollapsed, setFileCollapsed] = useState(false);
@@ -33,12 +34,12 @@ export default function ConversationDetailPage({
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [fileTreeLoading, setFileTreeLoading] = useState(true);
 
-  const conv = conversations.find((c) => c.id === params.conversationId);
+  const conv = conversations.find((c) => c.id === conversationId);
   const title = conv?.title ?? '对话';
   const tokens = conv?.tokens;
   const cacheRate = conv?.cacheRate;
-  const messages = messagesOf(params.conversationId);
-  const isStreaming = streaming?.conversationId === params.conversationId;
+  const messages = messagesOf(conversationId);
+  const isStreaming = streaming?.conversationId === conversationId;
   const convStatus = conv?.status;
   // 断线后仍在生成：本地无 SSE 流（刷新 / 跨 layout 切走），但后端状态仍是 running。
   const generatingOffline = !isStreaming && (convStatus ? IN_FLIGHT_STATUSES.includes(convStatus) : false);
@@ -48,8 +49,8 @@ export default function ConversationDetailPage({
   useEffect(() => {
     if (isStreaming || messages.length > 0) return;
     if (!conv) return;
-    loadConversation(params.conversationId);
-  }, [params.conversationId, isStreaming, messages.length, loadConversation, conv]);
+    loadConversation(conversationId);
+  }, [conversationId, isStreaming, messages.length, loadConversation, conv]);
 
   // 断线后（刷新 / 切到其他 layout）本会话没有活跃 SSE 流，正文要等回合结束才落库。
   // 轮询把状态从「生成中」翻成终态时，自动重拉一次历史补齐正文。
@@ -65,21 +66,21 @@ export default function ConversationDetailPage({
     if (prevStreaming) return;
     if (!prevStatus || !convStatus) return;
     if (IN_FLIGHT_STATUSES.includes(prevStatus) && TERMINAL_STATUSES.includes(convStatus)) {
-      loadConversation(params.conversationId);
+      loadConversation(conversationId);
     }
-  }, [convStatus, isStreaming, loadConversation, params.conversationId]);
+  }, [convStatus, isStreaming, loadConversation, conversationId]);
 
   const loadFileTree = useCallback(async () => {
     setFileTreeLoading(true);
     try {
-      const { roots } = await skillhubApi.getFileTree(params.conversationId);
+      const { roots } = await skillhubApi.getFileTree(conversationId);
       setFileTree(mapFileTree(roots));
     } catch (e) {
       console.warn('[skillhub] getFileTree failed', e);
     } finally {
       setFileTreeLoading(false);
     }
-  }, [params.conversationId]);
+  }, [conversationId]);
 
   useEffect(() => {
     loadFileTree();
@@ -110,11 +111,11 @@ export default function ConversationDetailPage({
   };
 
   const handleDownload = (node: FileNode) => {
-    if (node.virtualPath) downloadFile(params.conversationId, node.virtualPath);
+    if (node.virtualPath) downloadFile(conversationId, node.virtualPath);
   };
 
   const handleDownloadDir = (node: FileNode) => {
-    if (node.virtualPath) downloadDirectory(params.conversationId, node.virtualPath);
+    if (node.virtualPath) downloadDirectory(conversationId, node.virtualPath);
   };
 
   return (
@@ -149,16 +150,16 @@ export default function ConversationDetailPage({
 
           <ChatView
             messages={messages}
-            loading={loadingMessagesId === params.conversationId && messages.length === 0}
+            loading={loadingMessagesId === conversationId && messages.length === 0}
           />
           <GenStatusBar label={streaming?.label ?? '正在生成…'} visible={isStreaming || generatingOffline} />
 
           <div className="bg-white flex-shrink-0">
             <div className="max-w-3xl mx-auto px-4 pt-1 pb-4">
               <InputArea
-                key={params.conversationId}
+                key={conversationId}
                 models={models}
-                conversationId={params.conversationId}
+                conversationId={conversationId}
                 placeholder="输入消息，@ 指定技能 (Enter 发送, Shift+Enter 换行)"
               />
             </div>
@@ -181,7 +182,7 @@ export default function ConversationDetailPage({
 
       <FilePreviewModal
         file={preview}
-        conversationId={params.conversationId}
+        conversationId={conversationId}
         onClose={() => setPreview(null)}
       />
     </>

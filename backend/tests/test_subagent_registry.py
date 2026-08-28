@@ -63,7 +63,7 @@ class TestGeneralPurposeRole:
         assert definition.max_turns == 100
 
     def test_system_prompt_mentions_skillhub_workspace(self) -> None:
-        """System prompt references SkillHub workspace paths."""
+        """System prompt references Heyu Agent workspace paths."""
         registry = build_skillhub_registry()
         definition = registry.get("general-purpose")
         assert "/mnt/user-data/workspace" in definition.system_prompt
@@ -71,7 +71,7 @@ class TestGeneralPurposeRole:
         assert "/mnt/skills" in definition.system_prompt
 
     def test_system_prompt_does_not_mention_deerflow(self) -> None:
-        """System prompt is SkillHub-native, no DeerFlow branding."""
+        """System prompt is Heyu Agent-native, no DeerFlow branding."""
         registry = build_skillhub_registry()
         definition = registry.get("general-purpose")
         assert "DeerFlow" not in definition.system_prompt
@@ -104,7 +104,7 @@ class TestBashRole:
         assert definition.max_turns == 60
 
     def test_system_prompt_mentions_skillhub_workspace(self) -> None:
-        """System prompt references SkillHub workspace paths."""
+        """System prompt references Heyu Agent workspace paths."""
         registry = build_skillhub_registry()
         definition = registry.get("bash")
         assert "/mnt/user-data/workspace" in definition.system_prompt

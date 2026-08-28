@@ -1,6 +1,6 @@
 """Skill 上传安全扫描器 —— LLM 审查技能文件内容。
 
-SkillHub 是云端 agent，用户上传的 skill 属于不可信内容：SKILL.md 与
+Heyu Agent 是云端 agent，用户上传的 skill 属于不可信内容：SKILL.md 与
 references/templates 会以提示词形式进入 agent 上下文，``scripts/`` 下的脚本
 可能在 sandbox 中执行。因此必须在安装前逐文件做安全审查。
 

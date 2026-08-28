@@ -1,4 +1,4 @@
-"""SkillHub FastAPI application — powered by agent-sdk.
+"""Heyu Agent FastAPI application — powered by agent-sdk.
 
 The agent runtime is assembled at startup via :func:`agent_sdk.create_agent`
 with a local subprocess sandbox and on-disk skill loading.

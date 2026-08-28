@@ -12,8 +12,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-export const CodeBlock = (props: Props) => {
-  const { language, children } = props;
+export const CodeBlock = ({ language, children, ...rest }: Props) => {
   const value = String(children).replace(/\n$/, '');
 
   return (
@@ -35,13 +34,14 @@ export const CodeBlock = (props: Props) => {
         </button>
       </div>
       <SyntaxHighlighter
-        {...props}
-        children={value}
+        {...rest}
         style={atelierHeathLight}
         language={language}
         showLineNumbers
         PreTag='div'
-      />
+      >
+        {value}
+      </SyntaxHighlighter>
     </div>
   );
 };

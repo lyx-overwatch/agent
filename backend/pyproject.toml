@@ -1,7 +1,7 @@
 [project]
 name = "skill-hub"
 version = "0.1.0"
-description = "SkillHub — 多用户 AI Agent + Skill 执行平台"
+description = "Heyu Agent — 多用户 AI Agent + Skill 执行平台"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",

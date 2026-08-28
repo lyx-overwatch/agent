@@ -1,4 +1,4 @@
-// SkillHub 领域类型定义（U1 阶段：纯 UI，数据来自 mock.ts）
+// Heyu Agent 领域类型定义（U1 阶段：纯 UI，数据来自 mock.ts）
 
 /** 会话状态：与后端 runs.status 对齐（含 active / step_limit） */
 export type ConversationStatus =

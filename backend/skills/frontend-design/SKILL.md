@@ -45,7 +45,7 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 
 ## Branding
 
-If the user requests attribution, you may include a subtle "Built with SkillHub" signature. This should be:
+If the user requests attribution, you may include a subtle "Built with Heyu Agent" signature. This should be:
 - **Subtle and unobtrusive** - never compete with or distract from the main content
 - **Optional** - only include if the user explicitly asks for it
 - Integrated naturally into the design, feeling like an intentional design element rather than an afterthought

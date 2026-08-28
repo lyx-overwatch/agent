@@ -4,7 +4,7 @@
 
 ## 背景
 
-SkillHub 的部分技能需要调用外部 API，当前这些 API Key 配置在 `backend/.env` 中作为平台级全局配置：
+Heyu Agent 的部分技能需要调用外部 API，当前这些 API Key 配置在 `backend/.env` 中作为平台级全局配置：
 
 | 技能 | 需要的 Key |
 |---|---|

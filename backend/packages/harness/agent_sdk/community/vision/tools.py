@@ -1,6 +1,6 @@
 """Image-understanding tool — offloads image content to a multimodal model.
 
-This is a SkillHub community tool that plugs a *real* multimodal model into
+This is a Heyu Agent community tool that plugs a *real* multimodal model into
 the agent loop without requiring the main (pure-text) chat model to accept
 image input:
 

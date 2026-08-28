@@ -7,7 +7,7 @@ import React, { useRef, useState, RefObject, useEffect } from 'react';
 import { CodeBlock } from './code-block';
 import 'katex/dist/katex.min.css';
 
-export function PreCode(props: { children: any }) {
+export function PreCode(props: { children: React.ReactNode }) {
   const ref = useRef<HTMLPreElement>(null);
 
   return (
@@ -49,16 +49,15 @@ const useLazyLoad = (ref: RefObject<Element>): boolean => {
   return isIntersecting;
 };
 
-export const Markdown = React.memo(
-  ({
-    content,
-    isStreamEnd,
-    isMainChat,
-  }: {
-    content: string;
-    isStreamEnd?: boolean;
-    isMainChat?: boolean;
-  }) => {
+export const Markdown = React.memo(function Markdown({
+  content,
+  isStreamEnd,
+  isMainChat,
+}: {
+  content: string;
+  isStreamEnd?: boolean;
+  isMainChat?: boolean;
+}) {
     const ref = useRef<HTMLDivElement>(null);
 
     // 数学公式处理
@@ -73,9 +72,9 @@ export const Markdown = React.memo(
           // 按 \\ 分割行，并过滤空行
           return content
             .split('\\\\')
-            .map((line: any) => line.trim())
-            .filter((line: any) => line.length > 0)
-            .map((line: any) => {
+            .map((line: string) => line.trim())
+            .filter((line: string) => line.length > 0)
+            .map((line: string) => {
               const cleaned = line.replace(/&/g, '');
               return `$$ ${cleaned} $$`;
             })
@@ -144,11 +143,9 @@ export const Markdown = React.memo(
             code({ className, children, ...props }) {
               const match = /language-(\w+)/.exec(className || '');
               return match ? (
-                <CodeBlock
-                  {...props}
-                  children={String(children).replace(/\n$/, '')}
-                  language={match[1]}
-                />
+                <CodeBlock {...props} language={match[1]}>
+                  {String(children).replace(/\n$/, '')}
+                </CodeBlock>
               ) : (
                 <code {...props} className={className}>
                   {children}

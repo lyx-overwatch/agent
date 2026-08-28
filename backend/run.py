@@ -1,4 +1,4 @@
-"""SkillHub 启动入口。
+"""Heyu Agent 启动入口。
 
 用法:
     uv run python run.py                    # 默认 0.0.0.0:8001
@@ -21,7 +21,7 @@ if sys.platform == "win32":
 import uvicorn
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="SkillHub server")
+    parser = argparse.ArgumentParser(description="Heyu Agent server")
     parser.add_argument("--host", default="0.0.0.0", help="Bind address (default: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=8001, help="Bind port (default: 8001)")
     parser.add_argument("--reload", action="store_true", help="Enable hot-reload")

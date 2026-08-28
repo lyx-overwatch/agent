@@ -1,14 +1,14 @@
-# SkillHub Provisioner 说明
+# Heyu Agent Provisioner 说明
 
-> 本文档说明 Provisioner 的职责、工作原理、与主后端的交互方式，以及 SkillHub 特有的设计决策。
+> 本文档说明 Provisioner 的职责、工作原理、与主后端的交互方式，以及 Heyu Agent 特有的设计决策。
 
 ---
 
 ## 一、Provisioner 是什么
 
-**一句话**：Provisioner 是 SkillHub 的一个**独立辅助服务**，负责在 K8s 集群中按需创建/销毁 Sandbox Pod。
+**一句话**：Provisioner 是 Heyu Agent 的一个**独立辅助服务**，负责在 K8s 集群中按需创建/销毁 Sandbox Pod。
 
-**为什么需要它**：SkillHub 部署在华为云 CCE（Kubernetes）上，没有 Docker socket 可用。Agent 执行代码需要隔离环境——Provisioner 替主后端跟 K8s API Server 打交道，为每个对话线程创建独立的 Sandbox Pod。
+**为什么需要它**：Heyu Agent 部署在华为云 CCE（Kubernetes）上，没有 Docker socket 可用。Agent 执行代码需要隔离环境——Provisioner 替主后端跟 K8s API Server 打交道，为每个对话线程创建独立的 Sandbox Pod。
 
 **为什么是独立服务**：
 - **权限隔离**：Provisioner 需要 K8s Pod/Service CRUD 权限，主后端不需要
@@ -78,19 +78,19 @@ FastAPI lifespan 启动
 
 ### 2.6 Volume 挂载策略
 
-| Volume | 优先级 1 (PVC) | 优先级 2 (hostPath) | 优先级 3 (emptyDir) | SkillHub 实际需要? |
+| Volume | 优先级 1 (PVC) | 优先级 2 (hostPath) | 优先级 3 (emptyDir) | Heyu Agent 实际需要? |
 |---|---|---|---|---|
-| `skills` | `SKILLS_PVC_NAME` | `SKILLS_HOST_PATH` | 空目录 | ❌ **不需要** — SkillHub 通过 `read_skill` 工具动态注入 |
+| `skills` | `SKILLS_PVC_NAME` | `SKILLS_HOST_PATH` | 空目录 | ❌ **不需要** — Heyu Agent 通过 `read_skill` 工具动态注入 |
 | `user-data` | `USERDATA_PVC_NAME` | `THREADS_HOST_PATH` | 临时存储 | ✅ **必须** — workspace/outputs/uploads |
 
 **关键设计决策 — 为什么不需要 skills volume**：
 
-SkillHub 的 skill 注入流程与 DeerFlow 完全不同：
+Heyu Agent 的 skill 注入流程与 DeerFlow 完全不同：
 
 ```
 DeerFlow 方式:  skills 目录 → Docker volume mount → /mnt/skills（预挂载，只读）
 
-SkillHub 方式:  read_skill 工具 → 从主后端磁盘读取 skill 文件
+Heyu Agent 方式:  read_skill 工具 → 从主后端磁盘读取 skill 文件
                 → 通过 sandbox HTTP API (update_file) 写入 sandbox
                 → /mnt/user-data/workspace/.skills/<name>/
 ```
@@ -163,7 +163,7 @@ RemoteSandboxBackend （backend/packages/harness/agent_sdk/community/aio_sandbox
 
 Provisioner 是一个**独立部署的服务**，需要：
 
-| 项目 | Provisioner | SkillHub 主后端 |
+| 项目 | Provisioner | Heyu Agent 主后端 |
 |---|---|---|
 | **Python 依赖** | fastapi + uvicorn + kubernetes | 大量 AI/Agent 依赖 |
 | **镜像大小** | ~200MB（slim） | ~2GB+ |
@@ -197,7 +197,7 @@ uv run uvicorn app:app --host 0.0.0.0 --port 8002
 
 ## 五、与 DeerFlow 原版的差异
 
-| 项目 | DeerFlow 原版 | SkillHub 适配后 |
+| 项目 | DeerFlow 原版 | Heyu Agent 适配后 |
 |---|---|---|
 | Skills 挂载 | volume mount → `/mnt/skills` | **不需要**（`read_skill` 动态注入到 workspace） |
 | 重启策略 | `Always` | **`Never`**（一次性 Pod） |
@@ -220,7 +220,7 @@ USERDATA_PVC_NAME=skillhub-userdata
 
 # 或 hostPath 方式（本地开发/单机）
 THREADS_HOST_PATH=/data/skillhub/threads
-SKILLS_HOST_PATH=    # SkillHub 不需要，留空
+SKILLS_HOST_PATH=    # Heyu Agent 不需要，留空
 
 # ── K8s 认证（选一个）─────────────────────────────────
 # CCE 内：都不设，自动用 ServiceAccount

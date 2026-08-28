@@ -3,7 +3,7 @@
 This module is the **shared ownership** component for the model-call
 capture system.  It lives at the SDK layer so both
 :class:`ModelCallCaptureMiddleware` (in ``agent_sdk.middlewares``) and
-the SkillHub state logger (in ``app.core.state_logger``) can reference
+the Heyu Agent state logger (in ``app.core.state_logger``) can reference
 the same ContextVar-based collector without introducing a dependency
 from the SDK into the application layer.
 

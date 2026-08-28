@@ -361,7 +361,7 @@ def _move_staged_skill_into_reserved_target(staging_target: Path, target: Path) 
 class StagedSkill:
     """A validated + security-scanned skill archive, extracted to disk.
 
-    SkillHub is a cloud agent — custom skills are uploaded to object
+    Heyu Agent is a cloud agent — custom skills are uploaded to object
     storage (OBS), not installed to a local ``custom/`` directory.
     :func:`astage_skill_archive` returns this so the app layer can
     upload each file and then remove *root*.

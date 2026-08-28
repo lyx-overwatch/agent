@@ -1,4 +1,4 @@
-"""SkillHub 配置加载器 — config.yaml → agent_sdk 对象的桥接层。
+"""Heyu Agent 配置加载器 — config.yaml → agent_sdk 对象的桥接层。
 
 将 YAML 声明式配置翻译为 agent_sdk 的编程式对象:
 - ``models`` → :class:`ModelConfig` + :func:`create_chat_model`
@@ -189,7 +189,7 @@ def load_agent_config(config_path: str | None = None) -> AgentConfig:
     result.features = _load_features(raw)
 
     # ── 4.5. Subagent registry ───────────────────────────────────────
-    # Build the role registry from SkillHub built-ins + optional custom
+    # Build the role registry from Heyu Agent built-ins + optional custom
     # roles defined in config.yaml → subagents.roles.  Custom roles that
     # match a built-in name are registered as overrides (replace the
     # built-in definition).
@@ -516,7 +516,7 @@ def _load_features(raw: dict) -> RuntimeFeatures:
 
 
 def _build_subagent_registry(subagents_cfg: dict) -> DefaultSubagentRegistry:
-    """构建 SkillHub 子代理注册表（内建角色 + 可选的 YAML 自定义角色）。
+    """构建 Heyu Agent 子代理注册表（内建角色 + 可选的 YAML 自定义角色）。
 
     config.yaml 中的 ``subagents.roles`` 映射是可选的。
     内建角色始终可用（由 ``build_skillhub_registry`` 定义）；
@@ -539,7 +539,7 @@ def _build_subagent_registry(subagents_cfg: dict) -> DefaultSubagentRegistry:
 
     registry = build_skillhub_registry()
     names = registry.list_names()
-    logger.info("使用 SkillHub 内建子代理角色 ({})", ", ".join(names))
+    logger.info("使用 Heyu Agent 内建子代理角色 ({})", ", ".join(names))
     return registry
 
 

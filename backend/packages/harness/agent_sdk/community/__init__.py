@@ -6,7 +6,7 @@ may have its own optional dependencies.
 
 Current modules:
 * :mod:`agent_sdk.community.aio_sandbox` — Docker-based AIO sandbox provider
-* :mod:`agent_sdk.community.skillhub` — SkillHub's built-in subagent roles and runner
+* :mod:`agent_sdk.community.skillhub` — Heyu Agent's built-in subagent roles and runner
 """
 
 # Community modules are loaded lazily — importing this package does not

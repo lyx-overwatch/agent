@@ -62,7 +62,7 @@ const ScrollArea = (props: {
     }
   }, [resetScrollTagStr]);
 
-  const computeScroll = debounce((el: any) => {
+  const computeScroll = debounce((el: HTMLDivElement | null) => {
     if (!el || !canScrollFlag.current) return;
     const height = el.clientHeight;
     const scrollHeight = el.scrollHeight;

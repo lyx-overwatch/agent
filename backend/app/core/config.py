@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    app_name: str = "SkillHub"
+    app_name: str = "Heyu Agent"
     debug: bool = False
 
     # 运行环境: local | test | production
@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     algorithm: str = "HS512"
     # Java token 中存放用户标识的 claim key，对应 Java Constants.LOGIN_USER_KEY
     login_user_key: str = "login_user_key"
+    # 邮箱登录签发的 access token 有效期（分钟），默认 7 天
+    access_token_expire_minutes: int = 10080
     # LLM — 支持 Anthropic 直连 或 自定义代理（国内模型）
     anthropic_api_key: str = ""
     anthropic_base_url: str = ""

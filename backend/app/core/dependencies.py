@@ -1,6 +1,6 @@
 """FastAPI 鉴权依赖 —— 所有业务接口通过 get_current_user 注入当前用户。
 
-get_current_user 只做校验（JWT + Redis 登录态 + 用户是否存在），不负责注册。
+get_current_user 只做校验（JWT + 用户是否存在），不负责注册。
 用户注册由 ``POST /py/api/auth/verify`` 独立完成，前端在调用业务接口前必须
 先调用 verify 接口。
 
@@ -42,7 +42,7 @@ class _SimpleUser:
 
 
 async def get_current_user(user_id: str = Depends(check_is_authenticated)) -> AsyncIterator[str]:
-    """验证 JWT + Redis 登录态 + 用户已注册，返回 user_id 并绑定到 SDK ContextVar。
+    """验证 JWT + 用户已注册，返回 user_id 并绑定到 SDK ContextVar。
 
     仅做校验，不自动注册。前端必须先调 ``POST /py/api/auth/verify`` 完成注册。
 
@@ -50,7 +50,7 @@ async def get_current_user(user_id: str = Depends(check_is_authenticated)) -> As
         user_id str — 已验证用户标识。
 
     Raises:
-        401: Token 无效 / 缺失 / Redis 会话过期 / 用户未注册。
+        401: Token 无效 / 缺失 / 用户未注册。
 
     Note:
         这是 yield-based FastAPI 依赖：请求结束后会进入 ``finally`` 分支，

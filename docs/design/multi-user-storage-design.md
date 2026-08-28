@@ -4,7 +4,7 @@
 
 ## 1. 背景
 
-当前 SkillHub 的文件系统层缺少显式的多用户隔离。虽然 `thread_id = "{user_id}-{conversation_id}"` 隐式区分了用户，但目录结构本身是扁平的 `threads/{tid}/...`，而且 SDK 版的 `PathProvider` Protocol 根本没有 `user_id` 参数——尽管 DeerFlow 原版 `Paths` 类早已实现了 `users/{uid}/threads/{tid}/user-data/...` 的层级结构。
+当前 Heyu Agent 的文件系统层缺少显式的多用户隔离。虽然 `thread_id = "{user_id}-{conversation_id}"` 隐式区分了用户，但目录结构本身是扁平的 `threads/{tid}/...`，而且 SDK 版的 `PathProvider` Protocol 根本没有 `user_id` 参数——尽管 DeerFlow 原版 `Paths` 类早已实现了 `users/{uid}/threads/{tid}/user-data/...` 的层级结构。
 
 此外，生产存储（S3/OSS）的规划也只存在于早期文档的展望里，没有具体设计。
 
@@ -20,7 +20,7 @@
 | **DeerFlowPathProvider** | **❌** | preset 只实现了旧版扁平布局 |
 | **DefaultPathProvider** | **❌** | 同上 |
 | **AioSandboxProvider (SDK)** | **❌** | `_get_thread_mounts()` 只用 `thread_id` 构造路径 |
-| **user_context.py** | **❌ 未使用** | ContextVar + Protocol 已定义，但 SkillHub auth 未调用 `set_current_user()` |
+| **user_context.py** | **❌ 未使用** | ContextVar + Protocol 已定义，但 Heyu Agent auth 未调用 `set_current_user()` |
 | **DeerFlow origin `Paths` 类** | ✅ | **参考实现**，下文详述 |
 
 ### 当前目录结构
@@ -68,7 +68,7 @@ require_current_user()       # 未绑定抛 RuntimeError
 resolve_user_id(AUTO/str/None)  # 三态解析（auto / 显式 / 旁路）
 ```
 
-但 SkillHub 的 auth 中间件（`app/core/dependencies.py:get_current_user`）**从未调用 `set_current_user()`**，导致 ContextVar 始终为空，`get_effective_user_id()` 永远返回 `"default"`。
+但 Heyu Agent 的 auth 中间件（`app/core/dependencies.py:get_current_user`）**从未调用 `set_current_user()`**，导致 ContextVar 始终为空，`get_effective_user_id()` 永远返回 `"default"`。
 
 ## 4. 设计方案
 
@@ -203,7 +203,7 @@ def _get_thread_mounts(self, thread_id: str) -> list[tuple[str, str, bool]]:
 
 ⚠️ 这里有一个 **DooD 路径翻译**问题：网关容器内的 `SKILLHUB_HOME` 路径和 Docker daemon（宿主机）看到的路径不同。需要通过 `SKILLHUB_HOST_BASE_DIR` 环境变量翻译。当前已有这个机制（`sandbox_mount_skills_host_path`），需要确认 `thread_base_dir` 也走同样的翻译。
 
-#### 4.1.6 SkillHub Auth — 调用 `set_current_user()`
+#### 4.1.6 Heyu Agent Auth — 调用 `set_current_user()`
 
 **文件**: `backend/app/core/dependencies.py`
 

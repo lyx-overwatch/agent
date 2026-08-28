@@ -135,7 +135,7 @@ def _build_agent(
     available_subagents_block = _build_available_subagents_block(cfg.subagent_registry)
 
     system_prompt = (
-        "You are 爱共创AIGC Agent, an AI assistant with access to a sandbox environment.\n\n"
+        "You are Heyu Agent, an AI assistant with access to a sandbox environment.\n\n"
         "<rules>\n"
         "- Stop on failure: if a tool fails due to missing deps (API keys, env vars, "
         "unavailable services), STOP after 2 attempts and tell the user what is missing. "

@@ -1,4 +1,4 @@
-"""Shared test fixtures for SkillHub backend tests."""
+"""Shared test fixtures for Heyu Agent backend tests."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-// SkillHub U2 mock 流式传输层。
+// Heyu Agent U2 mock 流式传输层。
 // 按时间轴 emit StreamEvent，模拟 POST /py/api/chat/stream 的 SSE 序列。
 // U3 阶段由真实 SSE 解析器替换 startMockStream 的实现，调用方（chatReducer 侧）接口不变。
 

@@ -1,12 +1,12 @@
-# SkillHub Sandbox 沙箱实现原理
+# Heyu Agent Sandbox 沙箱实现原理
 
-> 本文档解释 SkillHub 的 Agent 代码执行沙箱是如何工作的——从配置文件到 Docker 容器，从虚拟路径到物理路径的完整链路。
+> 本文档解释 Heyu Agent 的 Agent 代码执行沙箱是如何工作的——从配置文件到 Docker 容器，从虚拟路径到物理路径的完整链路。
 
 ---
 
 ## 一、一句话概括
 
-Agent 执行代码时不能直接在 SkillHub 的 Python 进程里跑——不安全。所以 SkillHub 把代码执行（bash、文件读写等）隔离到**沙箱**里。
+Agent 执行代码时不能直接在 Heyu Agent 的 Python 进程里跑——不安全。所以 Heyu Agent 把代码执行（bash、文件读写等）隔离到**沙箱**里。
 
 沙箱有两种实现：
 - **本地沙箱**（开发用）：在宿主机上开子进程，无隔离
@@ -54,7 +54,7 @@ Agent 执行代码时不能直接在 SkillHub 的 Python 进程里跑——不�
 
 ### 3.1 物理目录布局
 
-当前 SkillHub 使用 `DefaultPathProvider`，目录结构如下：
+当前 Heyu Agent 使用 `DefaultPathProvider`，目录结构如下：
 
 ```
 {workspace}/                          # 例: ../agent-test/
@@ -114,7 +114,7 @@ LocalSandbox.acquire(thread_id)
 ### 4.2 AioSandboxProvider（生产用）
 
 ```
-SkillHub Python 进程
+Heyu Agent Python 进程
   │
   │  tool 调用 bash("ls /mnt/user-data/workspace/")
   ▼
@@ -236,16 +236,16 @@ AioSandboxProvider 需要动态创建容器。在开发环境直接挂载 `/var/
 - 创建特权容器并挂载宿主机根目录
 - 实现**容器逃逸**，进一步控制宿主机
 
-因此生产环境不能简单地把 Docker Socket 挂给 SkillHub 容器。
+因此生产环境不能简单地把 Docker Socket 挂给 Heyu Agent 容器。
 
 ### 6.2 两种 SandboxBackend
 
-SkillHub 的 AIO 沙箱设计了两种后端，用于不同部署场景：
+Heyu Agent 的 AIO 沙箱设计了两种后端，用于不同部署场景：
 
 | | `LocalContainerBackend` | `RemoteSandboxBackend` |
 |---|---|---|
 | **原理** | 直接调 `docker run` 创建容器 | 调 provisioner 的 HTTP API，由 provisioner 创建 Pod |
-| **Docker Socket** | ✅ 需要挂载到 SkillHub 容器 | ❌ 不需要 |
+| **Docker Socket** | ✅ 需要挂载到 Heyu Agent 容器 | ❌ 不需要 |
 | **适用场景** | 本地开发、单机测试 | 生产环境（K8s） |
 | **代码位置** | `backend.py` `LocalContainerBackend` | `backend.py` `RemoteSandboxBackend` |
 | **启用方式** | 默认 | 设 `provisioner_url` 配置项 |
@@ -257,7 +257,7 @@ SkillHub 的 AIO 沙箱设计了两种后端，用于不同部署场景：
 │  宿主机                    │
 │                           │
 │  ┌─────────────────┐     │
-│  │ SkillHub 容器    │     │
+│  │ Heyu Agent 容器    │     │
 │  │                 │     │
 │  │ -v docker.sock  │────► docker daemon
 │  │                 │     │     │
@@ -271,7 +271,7 @@ SkillHub 的 AIO 沙箱设计了两种后端，用于不同部署场景：
 └───────────────────────────┘
 
 简单直接，适合只有一台机器、没有 K8s 的测试环境。
-风险：SkillHub 容器如果被攻破，攻击者可通过 Docker Socket 逃逸。
+风险：Heyu Agent 容器如果被攻破，攻击者可通过 Docker Socket 逃逸。
 测试环境可接受此风险。
 ```
 
@@ -282,7 +282,7 @@ SkillHub 的 AIO 沙箱设计了两种后端，用于不同部署场景：
 │                        K8s 集群                               │
 │                                                              │
 │  ┌─────────────────┐         HTTP          ┌──────────────┐  │
-│  │  SkillHub Pod    │─────────────────────→│ Provisioner   │  │
+│  │  Heyu Agent Pod    │─────────────────────→│ Provisioner   │  │
 │  │                  │  POST /api/sandboxes │              │  │
 │  │  无 docker.sock  │  DELETE /api/...     │ K8s RBAC     │  │
 │  │  普通应用权限    │                      │ 最小权限      │  │
@@ -302,7 +302,7 @@ SkillHub 的 AIO 沙箱设计了两种后端，用于不同部署场景：
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**核心思路**：SkillHub 不直接操作 Docker/K8s，只调 provisioner 的 REST API。Provisioner 是唯一拥有容器管理权限的服务，可以做严格的 RBAC 控制。
+**核心思路**：Heyu Agent 不直接操作 Docker/K8s，只调 provisioner 的 REST API。Provisioner 是唯一拥有容器管理权限的服务，可以做严格的 RBAC 控制。
 
 **RemoteSandboxBackend 的代码（已实现）**：
 
@@ -334,9 +334,9 @@ class RemoteSandboxBackend(SandboxBackend):
 |---|---|---|
 | **本地开发** | `LocalContainerBackend` | 需要本地 Docker Desktop，`docker run` 直接创建 |
 | **测试环境** | `LocalContainerBackend` | 单机 Docker，挂载 docker.sock 风险可控 |
-| **生产环境** | `RemoteSandboxBackend` | 需要 provisioner 服务就位，SkillHub 不需要 Docker Socket |
+| **生产环境** | `RemoteSandboxBackend` | 需要 provisioner 服务就位，Heyu Agent 不需要 Docker Socket |
 
-**测试环境可以用 LocalContainerBackend 先上**，生产再切 RemoteSandboxBackend。两者对 SkillHub 其他代码完全透明——只是换了 `SandboxBackend` 的实现。
+**测试环境可以用 LocalContainerBackend 先上**，生产再切 RemoteSandboxBackend。两者对 Heyu Agent 其他代码完全透明——只是换了 `SandboxBackend` 的实现。
 
 ### 6.6 沙箱冷启动优化：镜像预热 + 节点亲和
 
@@ -402,7 +402,7 @@ SANDBOX_NODE_LABEL_VALUE = <目标节点名>   # 如 c2744bb7-aa96-4a3d-8c14-ad1
 
 ### 7.1 问题
 
-当 SkillHub 本身运行在 Docker 容器里，又通过 Docker socket 调度沙箱容器时，路径会出现两套视角：
+当 Heyu Agent 本身运行在 Docker 容器里，又通过 Docker socket 调度沙箱容器时，路径会出现两套视角：
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -412,7 +412,7 @@ SANDBOX_NODE_LABEL_VALUE = <目标节点名>   # 如 c2744bb7-aa96-4a3d-8c14-ad1
 │       │ docker run -v 挂载                               │
 │       ▼                                                 │
 │   ┌──────────────┐      ┌──────────────────────┐        │
-│   │ SkillHub 容器 │      │ 沙箱容器（agent 执行） │        │
+│   │ Heyu Agent 容器 │      │ 沙箱容器（agent 执行） │        │
 │   │              │      │                      │        │
 │   │ 看到的路径：  │      │ 挂载源必须用宿主机路径 │        │
 │   │ /data/       │      │ /var/lib/skillhub/   │        │
@@ -421,14 +421,14 @@ SANDBOX_NODE_LABEL_VALUE = <目标节点名>   # 如 c2744bb7-aa96-4a3d-8c14-ad1
 └─────────────────────────────────────────────────────────┘
 ```
 
-SkillHub 容器内看到 `/data/agent-test/`，但 Docker daemon 在宿主机上，需要 `/var/lib/skillhub/agent-test/` 才能正确 bind mount。
+Heyu Agent 容器内看到 `/data/agent-test/`，但 Docker daemon 在宿主机上，需要 `/var/lib/skillhub/agent-test/` 才能正确 bind mount。
 
 ### 7.2 解决方案
 
 设置 `SKILLHUB_HOST_BASE_DIR` 环境变量：
 
 ```bash
-# SkillHub 容器启动时
+# Heyu Agent 容器启动时
 docker run \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /var/lib/skillhub/agent-test:/data/agent-test \
@@ -547,7 +547,7 @@ info = self._backend.create(...)  # 不管怎样都执行 docker run
 | 容器空闲超过 `idle_timeout`（默认 600s = 10 分钟） | 后台线程每 60s 扫描一次，超时的 `docker stop` |
 | 暖池里的容器超过自己的超时 | 同上 |
 | 达到 `replicas` 上限时有新请求进来 | 销毁最老的暖池容器腾位置 |
-| SkillHub 进程退出 / 收到 SIGTERM | 销毁所有活跃 + 暖池容器 |
+| Heyu Agent 进程退出 / 收到 SIGTERM | 销毁所有活跃 + 暖池容器 |
 
 ### 10.4 实际时间线示例
 
@@ -590,7 +590,7 @@ Agent 的耗时分布决定了沙箱不太可能成为瓶颈：
 | CPU | 空闲时接近 0 | 空闲时接近 0 |
 | 磁盘 | 不存数据（bind mount 到宿主机） | 镜像约 1-2 GB（只拉一次） |
 
-加上 SkillHub 自己的 Python 进程（~500MB-1GB），**日常 2-3 GB 内存足够**。
+加上 Heyu Agent 自己的 Python 进程（~500MB-1GB），**日常 2-3 GB 内存足够**。
 
 ---
 

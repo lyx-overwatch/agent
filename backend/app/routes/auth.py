@@ -1,10 +1,10 @@
-"""Auth endpoints —— token 校验 + 用户注册。
+"""Auth endpoints —— 邮箱注册 / 登录 / token 校验。
 
-前端在调用任何业务接口之前，必须先调 ``POST /py/api/auth/verify``：
-  1. 验证 Java 签发的 JWT (HS512)
-  2. 校验 Redis 登录态
-  3. 首次调用自动在本地 users 表注册（已注册则跳过）
-  4. 返回 user_id 和注册状态
+前端在调用任何业务接口之前，先通过「邮箱注册」或「邮箱登录」拿到 access_token，
+存入 localStorage，之后所有请求带上 ``Authorization: Bearer <token>``。
+
+``POST /auth/verify`` 仍保留：校验 token 并（首次）自动注册，返回 user_id / role，
+供前端在启动时确认身份与角色。
 """
 
 from fastapi import APIRouter, Depends
@@ -13,6 +13,8 @@ from pydantic import BaseModel
 
 from app.core.auth import check_is_authenticated
 from app.models.database import SessionLocal, get_or_create_user
+from app.schemas.auth import AuthResponse, LoginRequest, RegisterRequest
+from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -21,6 +23,20 @@ class VerifyResponse(BaseModel):
     user_id: str
     is_new_user: bool  # 是否本次新注册
     role: str  # "user" | "admin"，前端据此决定是否展示审核入口
+
+
+@router.post("/register", response_model=AuthResponse, status_code=201)
+async def register(body: RegisterRequest):
+    """邮箱注册：创建用户并签发 access_token。"""
+    svc = AuthService()
+    return await svc.register(body.email, body.password)
+
+
+@router.post("/login", response_model=AuthResponse)
+async def login(body: LoginRequest):
+    """邮箱登录：校验凭证并签发 access_token。"""
+    svc = AuthService()
+    return await svc.login(body.email, body.password)
 
 
 @router.post("/verify", response_model=VerifyResponse)

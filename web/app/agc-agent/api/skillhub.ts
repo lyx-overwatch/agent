@@ -1,4 +1,4 @@
-// SkillHub 接口方法封装（对应 docs/api/*.md），返回后端「裸 JSON」原样，不做解包。
+// Heyu Agent 接口方法封装（对应 docs/api/*.md），返回后端「裸 JSON」原样，不做解包。
 // 领域类型（Conversation / Message / FileNode 等）由接线层负责从这些 snake_case 结构映射。
 
 import { pyDELETE, pyGET, pyPOST, pyUpload } from '../lib/pyNetwork';
@@ -60,6 +60,19 @@ export interface VerifyResponse {
   role: string; // "user" | "admin"，前端据此决定是否展示审核入口
 }
 
+export interface AuthUser {
+  user_id: string;
+  email: string | null;
+  username: string | null;
+  role: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+}
+
 /** /skills/mine、/skills/marketplace、/skills/pending 返回的条目（裸数组） */
 export interface ApiSkillItem {
   name: string;
@@ -95,6 +108,12 @@ export interface ApiBuiltinSkillItem {
 
 export const skillhubApi = {
   verify: () => pyPOST<VerifyResponse>('/auth/verify'),
+
+  login: (email: string, password: string) =>
+    pyPOST<AuthResponse>('/auth/login', { email, password }),
+
+  register: (email: string, password: string) =>
+    pyPOST<AuthResponse>('/auth/register', { email, password }),
 
   listConversations: () =>
     pyGET<{ conversations: ApiConversation[] }>('/conversations'),

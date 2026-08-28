@@ -1,4 +1,4 @@
-// SkillHub 流式状态机（debug-agent.html sendStream 的 React 翻译）。
+// Heyu Agent 流式状态机（debug-agent.html sendStream 的 React 翻译）。
 // 纯 reducer：把 SSE StreamEvent 序列转换成会话/消息/状态条状态。
 // - 交错渲染：text / reasoning / tool 段按到达顺序追加到在途助手消息
 // - pendingCards：tool_start 建 pending 卡、tool_end 按 run_id 匹配替换

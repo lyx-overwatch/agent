@@ -1,4 +1,4 @@
-"""SkillHub Sandbox Provisioner Service.
+"""Heyu Agent Sandbox Provisioner Service.
 
 Dynamically creates and manages per-sandbox Pods in Kubernetes.
 Each ``sandbox_id`` gets its own Pod + ClusterIP Service.  The backend
@@ -88,7 +88,7 @@ SANDBOX_IMAGE = os.environ.get(
 SANDBOX_NODE_LABEL_KEY = os.environ.get("SANDBOX_NODE_LABEL_KEY", "")
 SANDBOX_NODE_LABEL_VALUE = os.environ.get("SANDBOX_NODE_LABEL_VALUE", "true")
 # ── Volume configuration ───────────────────────────────────────────────
-# SkillHub does NOT mount a skills volume into sandbox Pods.
+# Heyu Agent does NOT mount a skills volume into sandbox Pods.
 # Skills are injected dynamically at runtime via the ``read_skill`` tool,
 # which writes skill files into ``/mnt/user-data/workspace/.skills/``
 # through the sandbox HTTP API — no volume mount needed.
@@ -551,7 +551,7 @@ async def lifespan(_app: FastAPI):
         logger.info("GC background task stopped")
 
 
-app = FastAPI(title="SkillHub Sandbox Provisioner", lifespan=lifespan)
+app = FastAPI(title="Heyu Agent Sandbox Provisioner", lifespan=lifespan)
 
 
 # ── Request / Response models ───────────────────────────────────────────
@@ -605,7 +605,7 @@ def _build_volumes() -> list[k8s_client.V1Volume]:
 
 
 def _build_volume_mounts() -> list[k8s_client.V1VolumeMount]:
-    """Build the user-data volume mount (only mount needed by SkillHub)."""
+    """Build the user-data volume mount (only mount needed by Heyu Agent)."""
     return [
         k8s_client.V1VolumeMount(
             name="user-data",

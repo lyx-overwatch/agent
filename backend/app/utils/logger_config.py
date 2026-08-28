@@ -1,4 +1,4 @@
-"""Loguru logging configuration for SkillHub.
+"""Loguru logging configuration for Heyu Agent.
 
 Provides :func:`setup_logging` to initialise loguru with
 environment-aware behaviour:

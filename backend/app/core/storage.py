@@ -1,14 +1,14 @@
-"""Storage backend abstraction — pluggable file storage for SkillHub.
+"""Storage backend abstraction — pluggable file storage for Heyu Agent.
 
 Provides a protocol-based storage layer with two implementations:
 
 - :class:`LocalStorageBackend`: files stored on local disk; download URL
-  points to the SkillHub file-serving API (suitable for development and
+  points to the Heyu Agent file-serving API (suitable for development and
   non-containerised deployments).
 - :class:`S3StorageBackend`: files stored in any S3-compatible object
   storage (Huawei Cloud OBS, MinIO, AWS S3, etc.); ``download_url``
   returns a pre-signed URL (used by the diagnostic upload endpoint), but
-  the file-serving route proxies the object through SkillHub instead —
+  the file-serving route proxies the object through Heyu Agent instead —
   OBS's endpoint is internal and not CORS-enabled, so the browser cannot
   fetch the pre-signed URL directly.
 
@@ -116,7 +116,7 @@ class StorageBackend(Protocol):
 
         Returns:
             A fully qualified URL the client can GET to download the
-            file. For the local backend this is a SkillHub API path;
+            file. For the local backend this is a Heyu Agent API path;
             for S3 this is a pre-signed URL.
         """
         ...
@@ -188,7 +188,7 @@ class StorageBackend(Protocol):
 class LocalStorageBackend:
     """Storage backend that keeps files on the local filesystem.
 
-    ``download_url`` returns a relative API path that the SkillHub file-
+    ``download_url`` returns a relative API path that the Heyu Agent file-
     serving route resolves back to this backend's on-disk location. This
     keeps the local-dev experience simple (no extra services needed).
 
@@ -196,7 +196,7 @@ class LocalStorageBackend:
     ----------
     base_dir: Root directory for stored files. Thread-specific
         subdirectories are created underneath.
-    serve_prefix: URL prefix for the SkillHub file-serving endpoint,
+    serve_prefix: URL prefix for the Heyu Agent file-serving endpoint,
         e.g. ``"/py/api/chat/files/"``.
     """
 
@@ -230,7 +230,7 @@ class LocalStorageBackend:
         }
 
     async def download_url(self, key: str, *, expires_in: int = 3600) -> str:
-        # Local storage: return the SkillHub file-serving API path.
+        # Local storage: return the Heyu Agent file-serving API path.
         # The serve_prefix has format "/py/api/chat/files/" and the route
         # expects a conversation_id as a path segment, but here we just
         # return a relative path that the frontend resolves against the

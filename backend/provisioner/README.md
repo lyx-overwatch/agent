@@ -1,10 +1,10 @@
-# SkillHub Sandbox Provisioner
+# Heyu Agent Sandbox Provisioner
 
-Provisioner 是 SkillHub 的**独立辅助服务**，负责在 K8s 集群中按需创建/销毁 Sandbox Pod。Agent 执行代码需要隔离环境，Provisioner 替主后端跟 K8s API Server 打交道，为每个对话线程创建独立的 Sandbox Pod。
+Provisioner 是 Heyu Agent 的**独立辅助服务**，负责在 K8s 集群中按需创建/销毁 Sandbox Pod。Agent 执行代码需要隔离环境，Provisioner 替主后端跟 K8s API Server 打交道，为每个对话线程创建独立的 Sandbox Pod。
 
 ## 为什么是独立服务
 
-| | Provisioner | SkillHub 主后端 |
+| | Provisioner | Heyu Agent 主后端 |
 |---|---|---|
 | **Python 依赖** | fastapi + uvicorn + kubernetes | 大量 AI/Agent 依赖 |
 | **镜像大小** | ~200MB（slim） | ~2GB+ |
@@ -17,7 +17,7 @@ Provisioner 是 SkillHub 的**独立辅助服务**，负责在 K8s 集群中按�
 
 ```
 ┌─────────────────┐  HTTP                         ┌──────────────┐
-│  SkillHub 主后端  │ ────▸ http://provisioner:8002 │  Provisioner │
+│  Heyu Agent 主后端  │ ────▸ http://provisioner:8002 │  Provisioner │
 │  (Pod)          │      (K8s Service DNS)        │  (Pod)       │
 └────────┬────────┘                               └──────┬───────┘
          │                                               │ K8s API
@@ -37,7 +37,7 @@ Provisioner 是 SkillHub 的**独立辅助服务**，负责在 K8s 集群中按�
 
 - **emptyDir 存储**：Sandbox Pod 使用 emptyDir 临时存储（Pod 删除后自动清空），不需要 PVC
 - **文件同步**：Agent 运行完成后，Backend 通过 sandbox HTTP API 拉取生成的文件 → 上传到对象存储（OBS/MinIO）
-- **不需要 skills volume mount**：SkillHub 通过 `read_skill` 工具从主后端磁盘读取 skill 文件，再通过 sandbox HTTP API 写入 sandbox workspace
+- **不需要 skills volume mount**：Heyu Agent 通过 `read_skill` 工具从主后端磁盘读取 skill 文件，再通过 sandbox HTTP API 写入 sandbox workspace
 - **Pod 重启策略 `Never`**：Sandbox 是一次性 Pod，退出后自动清理
 - **NodePort Service**：每个 Sandbox Pod 绑定一个 NodePort Service，主后端通过 `{NodeIP}:{NodePort}` 直连
 
@@ -156,7 +156,7 @@ spec:
       targetPort: 8002
 ```
 
-### 3. SkillHub 主后端配置
+### 3. Heyu Agent 主后端配置
 
 `config.yaml` 中设置：
 ```yaml
@@ -208,7 +208,7 @@ subjects:
 
 ```
 用户发消息
-  → SkillHub 主后端运行 Agent
+  → Heyu Agent 主后端运行 Agent
   → Agent 需要 sandbox → AioSandboxProvider.acquire(thread_id)
     → RemoteSandboxBackend.create()
       → POST http://provisioner:8002/api/sandboxes

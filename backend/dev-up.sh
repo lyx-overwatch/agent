@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SkillHub 本地开发一键启动。
+# Heyu Agent 本地开发一键启动。
 #
 # 按依赖顺序启动：Docker(colima) → PostgreSQL → 数据库就绪(建库+自动迁移)
 # → Redis → MinIO → 后端。已就绪的服务会被跳过。

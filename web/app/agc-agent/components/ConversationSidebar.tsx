@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  LogOut,
   MessageCircle,
   PanelLeftClose,
   Sparkles,
@@ -39,6 +40,11 @@ export default function ConversationSidebar() {
     setSidebarCollapsed(true);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    router.replace('/');
+  };
+
   const handleDelete = (id: string) => {
     setDeleteId(id);
   };
@@ -69,22 +75,32 @@ export default function ConversationSidebar() {
           sidebarCollapsed && 'lg:hidden',
         )}
       >
-        {/* Logo + 收起 */}
+        {/* Logo + 退出 + 收起 */}
         <div className="h-12 flex items-center justify-between px-4">
           <Link
             href="/"
             className="flex items-center hover:opacity-80 transition-opacity"
           >
-            <span className="text-base font-bold text-gray-900">Agent</span>
+            <span className="text-base font-bold text-gray-900">Heyu Agent</span>
           </Link>
-          <button
-            type="button"
-            title="收起侧边栏"
-            onClick={handleCollapse}
-            className="p-2 -mr-2 hover:bg-gray-100 rounded-md transition-colors"
-          >
-            <PanelLeftClose className="w-4 h-4 text-gray-600" />
-          </button>
+          <div className="flex items-center">
+            <button
+              type="button"
+              title="退出登录"
+              onClick={handleLogout}
+              className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              <LogOut className="w-4 h-4 text-gray-600" />
+            </button>
+            <button
+              type="button"
+              title="收起侧边栏"
+              onClick={handleCollapse}
+              className="p-2 -mr-2 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              <PanelLeftClose className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
         </div>
 
         {/* 导航 */}

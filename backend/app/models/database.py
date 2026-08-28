@@ -29,17 +29,18 @@ SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
 class User(SQLModel, table=True):
-    """本地用户表 —— 首次鉴权时自动从 Java Token 注册。
+    """本地用户表。
 
-    ``id`` 即 Java 端 JWT 中的 ``login_user_key``，由 Java 主系统分配。
-    本平台不自行签发用户标识，也不存储密码。
+    - 邮箱注册/登录的用户：``id`` 由本平台生成（UUID），``email`` 唯一，``hashed_password`` 为 bcrypt 哈希。
+    - Java 主系统签发的用户：``id`` 即 JWT 中的 ``login_user_key``，``email`` / ``hashed_password`` 可为 NULL。
     """
 
     __tablename__ = "users"
 
     id: str = Field(primary_key=True, max_length=100)  # = login_user_key
     username: str | None = Field(default=None, max_length=50, index=True)
-    email: str | None = Field(default=None, max_length=200)
+    email: str | None = Field(default=None, max_length=200, unique=True, index=True)  # 邮箱登录唯一标识（Java 用户可为 NULL）
+    hashed_password: str | None = Field(default=None, max_length=200)  # bcrypt 哈希；Java 用户无密码为 NULL
     is_active: bool = Field(default=True)
     role: str = Field(default="user", max_length=20)  # "user" | "admin"（管理员由运维手动置位）
     created_at: datetime | None = Field(

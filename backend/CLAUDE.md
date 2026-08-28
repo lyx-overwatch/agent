@@ -1,6 +1,6 @@
 # CLAUDE.md — Backend
 
-This file documents the backend design conventions, layered architecture, and coding standards for the SkillHub backend (`backend/`).
+This file documents the backend design conventions, layered architecture, and coding standards for the Heyu Agent backend (`backend/`).
 
 ## Architecture Overview
 
