@@ -61,6 +61,12 @@ RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache \
 # 将 .venv 加入 PATH，使 uvicorn 可直接调用
 ENV PATH="/app/.venv/bin:$PATH"
 
+# ── DooD：注入 docker CLI ──────────────────────────────────────────────
+# 单机部署时 backend 容器通过挂载的 /var/run/docker.sock 管理宿主机上的
+# 沙箱容器（LocalContainerBackend 走 `docker` 子进程）。`docker:cli` 来自
+# Docker Hub，仅含 CLI 不含 daemon。
+COPY --from=docker:cli /usr/local/bin/docker /usr/local/bin/docker
+
 EXPOSE 8001
 
 # ── 启动 ─────────────────────────────────────────────────────────────────────

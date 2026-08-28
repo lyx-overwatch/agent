@@ -1,0 +1,73 @@
+# ============================================================================
+# Heyu Agent 单服务器部署（Docker Compose）
+# ============================================================================
+# 服务: postgres + backend (FastAPI) + frontend (Next.js)
+# 沙箱: backend 挂载 docker.sock（DooD），通过宿主机 daemon 起沙箱容器。
+#
+# 使用前:
+#   1. cp .env.example .env              # 填 POSTGRES_PASSWORD、AGENT_TEST_HOST_DIR
+#   2. cp backend.env.example backend.env # 填 SECRET_KEY、API Key
+#   3. make up
+#
+# 镜像: 默认 build: 本地构建。若要推 Docker Hub 再拉取，
+#       把对应服务的 build: 换成 image: your-registry/heyu-backend:tag（frontend 同理）。
+# ============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 .env 中设置 POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-agent}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-agent}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build:
+      context: ../../backend
+    # image: your-registry/heyu-backend:tag   # 推镜像部署时替换
+    restart: unless-stopped
+    env_file:
+      - ./backend.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agent}
+      # 单机 DooD：沙箱容器由宿主机 daemon 管理，bind-mount 源必须是宿主机真实路径
+      SKILLHUB_HOST_BASE_DIR: ${AGENT_TEST_HOST_DIR:?请在 .env 中设置 AGENT_TEST_HOST_DIR（宿主机绝对路径）}
+      SKILLHUB_SANDBOX_HOST: host.docker.internal
+      ENVIRONMENT: production
+      STORAGE_BACKEND: local
+      RATE_LIMIT_BACKEND: memory
+      CORS_ORIGINS: ""
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${AGENT_TEST_HOST_DIR:?请在 .env 中设置 AGENT_TEST_HOST_DIR}:/agent-test
+    # 调试时可放开直接访问后端
+    # ports:
+    #   - "8001:8001"
+
+  frontend:
+    build:
+      context: ../../web
+      args:
+        BACKEND_URL: http://backend:8001
+    # image: your-registry/heyu-frontend:tag   # 推镜像部署时替换
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-80}:3000"
+
+volumes:
+  pgdata:

@@ -9,6 +9,8 @@ const nextConfig: NextConfig = {
   // text/event-stream 会整段缓冲、等流结束后一次性吐出（流式输出变成一次性返回）。
   // curl 能流式解压所以测不出来，浏览器不行 —— 因此必须关掉压缩让 SSE 明文逐帧下发。
   compress: false,
+  // standalone 输出：Docker 多阶段构建产物更小；`next start` 下 rewrites / SSE 反代照常生效。
+  output: "standalone",
   // 把前端 `/py/api/*` 反代到 Heyu Agent 后端（默认 http://localhost:8001），
   // 保留 `/py/api` 前缀：`/py/api/conversations` → `${BACKEND_URL}/py/api/conversations`。
   async rewrites() {
