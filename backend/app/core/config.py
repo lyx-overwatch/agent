@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     # 防止前端异常 / 连点 / 代理重试在短时间内批量创建重复会话。
     # 设为 0 或负数表示关闭限流。
     conversation_create_min_interval_seconds: int = 3
+    # 限流后端：memory（进程内，单实例 / 本地开发，零依赖）| redis（多副本共享窗口）。
+    # 单实例部署 memory 足够；多副本负载均衡时需用 redis，否则各进程窗口不共享。
+    rate_limit_backend: str = "memory"
 
     # ── File storage (OBS / MinIO / local) ──────────────────────────
     # "local" → files on local disk (zero-config development)

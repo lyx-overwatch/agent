@@ -2,7 +2,7 @@
 # Heyu Agent 本地开发一键启动。
 #
 # 按依赖顺序启动：Docker(colima) → PostgreSQL → 数据库就绪(建库+自动迁移)
-# → Redis → MinIO → 后端。已就绪的服务会被跳过。
+# → MinIO → 后端。已就绪的服务会被跳过。
 #
 # 注意：数据库迁移会在启动时自动执行 `uv run alembic upgrade head`
 # （落后则升级，已最新则跳过）。生产环境请勿依赖此脚本，迁移应由发布流程显式执行。
@@ -58,7 +58,7 @@ detect_proxy() {
 }
 
 # ── 1. Docker (colima) — sandbox provider=docker 依赖 ──────────────────
-info "1/6 启动 Docker (colima)"
+info "1/5 启动 Docker (colima)"
 if docker info >/dev/null 2>&1; then
     skip "Docker daemon"
 else
@@ -73,7 +73,7 @@ else
 fi
 
 # ── 2. PostgreSQL — 数据库 + checkpointer ─────────────────────────────
-info "2/6 启动 PostgreSQL"
+info "2/5 启动 PostgreSQL"
 PG_SVC="$(brew services list 2>/dev/null | awk '$1 ~ /^postgres/ {print $1; exit}')"
 if port_open 5432; then
     skip "PostgreSQL (5432)"
@@ -89,7 +89,7 @@ PSQL="$PG_BIN/psql"
 CREATEDB="$PG_BIN/createdb"
 
 # ── 3. 数据库就绪：建库（幂等） + 迁移检查（只提示不自动跑）──────────
-info "3/6 数据库就绪检查"
+info "3/5 数据库就绪检查"
 
 # 从 .env 提取库名（假设 DATABASE_URL 值无引号、无 query string）
 db_name="$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d= -f2- | sed 's|.*/||; s|\?.*||')"
@@ -122,22 +122,14 @@ else
     warn "未找到 alembic.ini 和 alembic.ini.example，跳过迁移检查"
 fi
 
-# ── 4. Redis — IM channel ─────────────────────────────────────────────
-info "4/6 启动 Redis"
-if port_open 6379; then
-    skip "Redis (6379)"
-else
-    brew services start redis
-fi
-
-# ── 5. MinIO — 文件存储 (S3, 默认 minioadmin/minioadmin，对应 .env) ──
-info "5/6 启动 MinIO"
+# ── 4. MinIO — 文件存储 (S3, 默认 minioadmin/minioadmin，对应 .env) ──
+info "4/5 启动 MinIO"
 if port_open 9000; then
     skip "MinIO (9000)"
 else
     brew services start minio
 fi
 
-# ── 6. 后端 ───────────────────────────────────────────────────────────
-info "6/6 启动后端 (0.0.0.0:8001)"
+# ── 5. 后端 ───────────────────────────────────────────────────────────
+info "5/5 启动后端 (0.0.0.0:8001)"
 exec make dev
