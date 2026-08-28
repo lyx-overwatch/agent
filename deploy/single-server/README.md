@@ -96,6 +96,76 @@ docker ps | grep skillhub-sandbox           # 应看到新建的沙箱容器
 agent 生成的文件会落到 `${AGENT_TEST_HOST_DIR}/users/<uid>/threads/<thread_id>/outputs/`，
 前端「文件树」面板应能预览。
 
+## 1G 内存低配部署（单用户玩票）
+
+> 适用：RackNerd 最低配（**1G RAM / 20G 盘 / 1G swap**）。
+> **只适合单用户自己玩**：多人同时用、或开启子代理，1G 内存会 OOM。
+> CCE 生产版 backend 配的是 1Gi request / 4Gi limit，那是因为要扛多用户 + 子代理 + 常驻沙箱，
+> 你的场景不需要按那个规格来。
+
+### 预期表现
+
+- 能跑通：登录、聊天、沙箱写文件。
+- 会慢：LA 到国内模型每轮多几百 ms 延迟 + swap 换页，明显比本地慢。
+- 偶发 OOM：一次处理很多大文件 / 长任务时，沙箱可能被系统 OOM 杀掉（聊天中断，重发即可，不会坏数据）。
+
+### Step 0：加 swap（机器已自带 1G，建议再加 2G）
+
+Debian 12 上执行：
+
+```bash
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+# 1G 内存建议更积极地用 swap，减少 OOM 概率
+echo 'vm.swappiness=80' | sudo tee /etc/sysctl.d/99-swappiness.conf && sudo sysctl vm.swappiness=80
+```
+
+`fallocate` 报错时改用 `sudo dd if=/dev/zero of=/swapfile bs=1M count=2048`。
+
+### Step 1：config.yaml 关掉吃内存的功能
+
+`backend/config.yaml` 里把下面 4 项从 `true` 改成 `false`（各段落里搜关键字即可）：
+
+| 段落 | 键 | 改为 | 作用 |
+|---|---|---|---|
+| `subagents` | `enabled` | `false` | **最大头**：关掉子代理，避免一次对话套娃起多个沙箱 |
+| `summarization` | `enabled` | `false` | 省掉摘要模型实例 + 每轮摘要 LLM 调用 |
+| `title` | `enabled` | `false` | 省掉后台标题模型实例 |
+| `memory` | `enabled` | `false` | 省掉长期记忆存储/注入 |
+
+> ⚠️ `config.yaml` 是本地开发和生产**共用**的。改完这 4 项，你本地开发时这些功能也会一并关掉。
+> 如果本地还想保留，部署前改、回来再改回 `true`（或改前备份一份）。
+
+### Step 2：compose 内存上限 + PG 调小（已内置）
+
+`docker-compose.yml` 已经加好了容器级 `mem_limit`（防止单个容器吃光整机内存），并调小了 postgres：
+
+- `postgres`: `mem_limit 256m` + `shared_buffers=64MB / max_connections=20`
+- `backend`: `mem_limit 768m`
+- `frontend`: `mem_limit 256m`
+
+**升级到 2G/4G 机器后，把这些 `mem_limit` 和 postgres 的 `command` 行删掉或调大**，别让人为限制拖慢性能。
+
+### 已知风险：沙箱容器没有内存上限
+
+沙箱容器是 backend 在运行时用 `docker run` 动态起的（`backend.py` 的 `LocalContainerBackend`），
+**命令里没带 `--memory`**，不在 compose 的 `mem_limit` 范围内 —— 它是 1G 机器上 OOM 的主因。
+
+想给它加上限：改 `backend/packages/harness/agent_sdk/community/aio_sandbox/backend.py` 里
+`create_container` 的 `cmd.extend(["--rm", "-d", ...])` 那一行，追加 `--memory 512m --cpus 1`
+（改完要重新构建 backend 镜像）。不想改代码就保持单次任务小一点。
+
+### 磁盘提醒（20G 也紧）
+
+20G 里的大头通常是 **Docker 镜像 + postgres checkpointer**，不只是用户文件：
+
+```bash
+docker system df    # 看镜像 / 卷 / 缓存各占多少
+```
+
+- 沙箱基础镜像是华为源，LA 拉不动 —— 见下方「沙箱镜像」一节，需本地重建推 Docker Hub。
+- checkpointer 快照会随对话涨，确认 `backend.env` 里 `CHECKPOINT_CLEANUP_ENABLED=true` 开着。
+
 ## 沙箱镜像
 
 backend 的 `LocalContainerBackend` 会用 config.yaml 里的默认沙箱镜像

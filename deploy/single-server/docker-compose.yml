@@ -21,6 +21,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 .env 中设置 POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-agent}
+    # 1G 内存机器调小 PG 内存占用（shared_buffers 64MB、连接数 20）。
+    # 升级到 2G+ 后删掉本行与下面的 mem_limit 即可恢复默认。
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=20", "-c", "work_mem=2MB"]
+    mem_limit: 256m
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -53,6 +57,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${AGENT_TEST_HOST_DIR:?请在 .env 中设置 AGENT_TEST_HOST_DIR}:/agent-test
+    # 1G 内存机器：限制 backend 内存上限，防止单容器吃光整机。
+    # 升级到 2G+ 后删掉（避免人为限制性能）。
+    mem_limit: 768m
     # 调试时可放开直接访问后端
     # ports:
     #   - "8001:8001"
@@ -64,6 +71,8 @@ services:
         BACKEND_URL: http://backend:8001
     # image: your-registry/heyu-frontend:tag   # 推镜像部署时替换
     restart: unless-stopped
+    # 1G 内存机器：限制 frontend 内存上限。升级到 2G+ 后删掉。
+    mem_limit: 256m
     depends_on:
       - backend
     ports:
