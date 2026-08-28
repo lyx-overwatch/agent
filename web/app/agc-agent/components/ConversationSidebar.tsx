@@ -251,8 +251,8 @@ export default function ConversationSidebar() {
             <Image
               src="/avator.png"
               alt="用户头像"
-              width={32}
-              height={32}
+              width={24}
+              height={24}
               className="rounded-full shrink-0"
             />
             <span className={classNames('flex-1 min-w-0 text-left', s.sidebarUserName)}>
