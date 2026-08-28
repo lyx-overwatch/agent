@@ -1,0 +1,60 @@
+# ============================================================================
+# SkillHub 前端 Deployment (debug-agent.html 单页应用)
+# ============================================================================
+# 镜像: skillhub-frontend:20260811V1.0 (nginx:alpine + index.html + nginx.conf)
+# 容器端口: 80
+# Service: skillhub-frontend:80 → container 80
+# Ingress: ftdream.oa.cmbchina.biz/debug/ → skillhub-frontend:80
+# ============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skillhub-frontend
+  namespace: fintech-aigc-dev
+  labels:
+    app: skillhub-frontend
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skillhub-frontend
+  template:
+    metadata:
+      labels:
+        app: skillhub-frontend
+        version: v1
+    spec:
+      imagePullSecrets:
+        - name: default-secret
+      containers:
+        - name: frontend
+          image: swr.cn-south-1.myhuaweicloud.com/fintech-aigc/skillhub-frontend:20260811V1.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
