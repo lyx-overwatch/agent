@@ -207,6 +207,10 @@ function labelFor(event: StreamEvent, thinkingEnabled: boolean): string | null {
       return event.elapsed_seconds != null
         ? `委派子代理中… (${fmtElapsed(event.elapsed_seconds)})`
         : '委派子代理中…';
+    case 'llm_retry':
+      return event.attempt != null && event.max_attempts != null
+        ? `正在重试… (${event.attempt}/${event.max_attempts})`
+        : '正在重试…';
     default:
       return null;
   }

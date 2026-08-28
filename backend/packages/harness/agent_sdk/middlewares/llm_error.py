@@ -257,50 +257,54 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
 
     def _build_retry_message(self, attempt: int, wait_ms: int, reason: str) -> str:
         seconds = max(1, round(wait_ms / 1000))
-        reason_text = "provider is busy" if reason == "busy" else "provider request failed temporarily"
-        return f"LLM request retry {attempt}/{self._retry.max_attempts}: {reason_text}. Retrying in {seconds}s."
+        reason_text = "服务繁忙" if reason == "busy" else "服务暂时不可用"
+        return f"正在重试请求 LLM（第 {attempt}/{self._retry.max_attempts} 次）：{reason_text}，{seconds} 秒后重试。"
 
     def _build_circuit_breaker_message(self) -> str:
-        return (
-            "The configured LLM provider is currently unavailable due to continuous failures. "
-            "Circuit breaker is engaged to protect the system. Please wait a moment before trying again."
-        )
+        return "LLM 服务因连续失败当前不可用，系统已启用熔断保护。请稍后再试。"
 
     def _build_user_message(self, exc: BaseException, reason: str) -> str:
         detail = _extract_error_detail(exc)
         if reason == "quota":
-            return (
-                "The configured LLM provider rejected the request because the account is out of "
-                "quota, billing is unavailable, or usage is restricted. Please fix the provider "
-                "account and try again."
-            )
+            return "LLM 服务账户余额不足或额度受限，请求被拒绝。请检查账户后重试。"
         if reason == "auth":
-            return (
-                "The configured LLM provider rejected the request because authentication or access "
-                "is invalid. Please check the provider credentials and try again."
-            )
+            return "LLM 服务认证或访问权限无效，请求被拒绝。请检查凭证后重试。"
         if reason in {"busy", "transient"}:
-            return (
-                "The configured LLM provider is temporarily unavailable after multiple retries. "
-                "Please wait a moment and continue the conversation."
-            )
-        return f"LLM request failed: {detail}"
+            return "LLM 服务暂时不可用，已多次重试仍失败。请稍后继续对话。"
+        return f"LLM 请求失败：{detail}"
 
-    def _emit_retry_event(self, attempt: int, wait_ms: int, reason: str) -> None:
+    def _build_retry_payload(self, attempt: int, wait_ms: int, reason: str) -> dict[str, Any]:
+        return {
+            "type": "llm_retry",
+            "attempt": attempt,
+            "max_attempts": self._retry.max_attempts,
+            "wait_ms": wait_ms,
+            "reason": reason,
+            "message": self._build_retry_message(attempt, wait_ms, reason),
+        }
+
+    def _dispatch_retry_event(self, attempt: int, wait_ms: int, reason: str) -> None:
+        """Emit a ``llm_retry`` custom event on the sync model path.
+
+        Uses ``dispatch_custom_event`` (langchain-core) instead of langgraph's
+        ``get_stream_writer`` — the latter only surfaces when ``astream`` runs
+        with ``stream_mode="custom"``, which ``astream_events(version="v2")``
+        does not (it defaults to ``values``).  Callback-dispatched custom events
+        surface as ``on_custom_event`` regardless of stream mode.
+        """
         try:
-            from langgraph.config import get_stream_writer
+            from langchain_core.callbacks import dispatch_custom_event
 
-            writer = get_stream_writer()
-            writer(
-                {
-                    "type": "llm_retry",
-                    "attempt": attempt,
-                    "max_attempts": self._retry.max_attempts,
-                    "wait_ms": wait_ms,
-                    "reason": reason,
-                    "message": self._build_retry_message(attempt, wait_ms, reason),
-                }
-            )
+            dispatch_custom_event("llm_retry", self._build_retry_payload(attempt, wait_ms, reason))
+        except Exception:
+            logger.debug("Failed to emit llm_retry event", exc_info=True)
+
+    async def _adispatch_retry_event(self, attempt: int, wait_ms: int, reason: str) -> None:
+        """Async variant of :meth:`_dispatch_retry_event` (async model path)."""
+        try:
+            from langchain_core.callbacks import adispatch_custom_event
+
+            await adispatch_custom_event("llm_retry", self._build_retry_payload(attempt, wait_ms, reason))
         except Exception:
             logger.debug("Failed to emit llm_retry event", exc_info=True)
 
@@ -338,7 +342,7 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
                         wait_ms,
                         _extract_error_detail(exc),
                     )
-                    self._emit_retry_event(attempt, wait_ms, reason)
+                    self._dispatch_retry_event(attempt, wait_ms, reason)
                     time.sleep(wait_ms / 1000)
                     attempt += 1
                     continue
@@ -381,7 +385,7 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
                         wait_ms,
                         _extract_error_detail(exc),
                     )
-                    self._emit_retry_event(attempt, wait_ms, reason)
+                    await self._adispatch_retry_event(attempt, wait_ms, reason)
                     await asyncio.sleep(wait_ms / 1000)
                     attempt += 1
                     continue

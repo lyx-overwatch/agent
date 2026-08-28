@@ -193,7 +193,7 @@ class PostHocErrorDetector:
                 "with an API error (e.g. BadRequestError 400) that was caught "
                 "by LangGraph internally."
             )
-            result.error_message = "Agent 执行过程中发生内部错误，请重试。"
+            result.error_message = "Agent 执行过程中发生内部错误，本轮已中断，请重新发送消息。"
             logger.warning(
                 "Post-hoc: agent produced empty AIMessage for conversation {} "
                 "({} total messages)",

@@ -124,7 +124,7 @@ export type SkillReviewStatus = 'draft' | 'pending' | 'approved' | 'rejected';
 /** 技能来源（/skills/available 的 origin） */
 export type SkillOrigin = 'builtin' | 'mine' | 'added';
 
-/** 技能（技能广场 / 我的技能 / 官方内置 / 审核） */
+/** 技能（市场 / 个人 / 官方内置 / 审核） */
 export interface Skill {
   /** 技能名（全局唯一，= 接口 name） */
   id: string;
@@ -184,6 +184,14 @@ export type StreamEvent =
       run_id?: string;
     }
   | { type: 'subagent_progress'; run_id?: string; elapsed_seconds?: number }
+  | {
+      type: 'llm_retry';
+      attempt?: number;
+      max_attempts?: number;
+      wait_ms?: number;
+      reason?: string;
+      message?: string;
+    }
   | { type: 'error'; message: string; recoverable?: boolean }
   | { type: 'run_end'; finish_reason: 'stop' | 'cancelled' | 'error' }
   | { type: 'title_update'; title: string }

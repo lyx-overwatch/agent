@@ -420,7 +420,7 @@ class StreamEventHandler:
                             event.get("name", "?"),
                             _err_msg[:500],
                         )
-                        _friendly = "Agent 执行链路发生内部错误，请重试。"
+                        _friendly = "Agent 执行链路发生内部错误，本轮已中断，请重新发送消息。"
                         _msg_match = re.search(r"message_zh['\"]?\s*:\s*['\"]([^'\"]+)", _err_msg)
                         if not _msg_match:
                             _msg_match = re.search(r"'message'\s*:\s*'([^']+)", _err_msg)
@@ -428,6 +428,21 @@ class StreamEventHandler:
                             _friendly = _msg_match.group(1)
                         self.error = RuntimeError(_friendly)
                         yield {"type": "error", "message": _friendly}
+
+                elif kind == "on_custom_event":
+                    # ── LLM 重试进度（LLMErrorHandlingMiddleware 派发）────
+                    # 经 adispatch_custom_event 派发的自定义事件，无论 astream
+                    # 的 stream_mode 是什么都会以 on_custom_event 到达这里。
+                    _data = event.get("data") or {}
+                    if isinstance(_data, dict) and _data.get("type") == "llm_retry":
+                        yield {
+                            "type": "llm_retry",
+                            "attempt": _data.get("attempt"),
+                            "max_attempts": _data.get("max_attempts"),
+                            "wait_ms": _data.get("wait_ms"),
+                            "reason": _data.get("reason"),
+                            "message": _data.get("message", ""),
+                        }
 
                 else:
                     # ── Diagnostic: log unhandled event kinds ──────────
@@ -492,5 +507,5 @@ class StreamEventHandler:
             if _msg_match:
                 self.error_message = _msg_match.group(1)
             else:
-                self.error_message = "Agent 执行过程中发生内部错误，请重试。"
+                self.error_message = "Agent 执行过程中发生内部错误，本轮已中断，请重新发送消息。"
             yield {"type": "error", "message": self.error_message}

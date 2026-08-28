@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Menu } from 'lucide-react';
+import { PanelLeftOpen } from 'lucide-react';
 import { useSkillhubUI } from './skillhub-ui';
 
 interface Props {
@@ -17,9 +17,9 @@ export default function PageHeader({ title, right }: Props) {
   return (
     <>
       {/* 桌面端 */}
-      <div className="hidden lg:flex h-14 items-center justify-between px-6 bg-white flex-shrink-0">
+      <div className="hidden lg:flex h-12 items-center justify-between px-6 bg-white flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <h1 className="text-base font-semibold text-gray-900 truncate">
+          <h1 className="text-sm font-semibold text-gray-900 truncate">
             {title}
           </h1>
         </div>
@@ -33,7 +33,7 @@ export default function PageHeader({ title, right }: Props) {
           onClick={() => setMobileOpen(true)}
           className="p-2 -ml-2 hover:bg-gray-100 rounded-md"
         >
-          <Menu className="w-4 h-4 text-gray-600" />
+          <PanelLeftOpen className="w-4 h-4 text-gray-600" />
         </button>
         <span className="ml-2 font-semibold text-sm text-gray-900 truncate">
           {title}

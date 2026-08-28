@@ -128,7 +128,7 @@ export default function ConversationDetailPage({
               <div className="flex items-center gap-2 flex-shrink-0">
                 {tokens && (
                   <span
-                    className="text-[13px] font-medium text-gray-600 cursor-help"
+                    className="text-[12px] font-medium text-gray-600 cursor-help"
                     title={fullMeta}
                   >
                     {shortMeta}

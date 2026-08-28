@@ -25,6 +25,10 @@ from app.utils import PREVIEWABLE_EXTENSIONS, get_model_display_name, get_sse_ev
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
+# SSE 保活心跳间隔（秒）：LLM 重试退避 / 长工具执行期间队列会长时间无事件，
+# 若不发任何字节，Next 反代等中间代理可能按 idle timeout 断开连接，前端会误报「网络连接中断」。
+_SSE_HEARTBEAT_SECONDS = 15.0
+
 
 # ── SSE streaming ────────────────────────────────────────────────────────
 
@@ -93,7 +97,7 @@ async def chat_stream(
                     conversation_id,
                 )
                 # Ensure the foreground sees the failure
-                await queue.put({"type": "error", "message": "服务端内部错误，请重试。"})
+                await queue.put({"type": "error", "message": "服务端发生内部错误，本轮生成已中断，请重新发送消息。"})
                 await queue.put(
                     {
                         "type": "run_end",
@@ -109,7 +113,12 @@ async def chat_stream(
 
         try:
             while True:
-                evt = await queue.get()
+                try:
+                    evt = await asyncio.wait_for(queue.get(), timeout=_SSE_HEARTBEAT_SECONDS)
+                except TimeoutError:
+                    # 静默期保活：发 SSE 注释行（客户端解析器忽略），仅用于维持连接不被代理断开
+                    yield ": keepalive\n\n"
+                    continue
                 if evt is None:  # sentinel — agent finished
                     break
 
@@ -217,6 +226,21 @@ async def chat_stream(
                         created=created,
                         model=model,
                     )
+                elif evt_type == "llm_retry":
+                    # LLM 重试进度：后端仍在重试、未中断，前端据此显示「正在重试」。
+                    yield get_sse_event(
+                        mid,
+                        "llm_retry",
+                        {
+                            "attempt": evt.get("attempt"),
+                            "max_attempts": evt.get("max_attempts"),
+                            "wait_ms": evt.get("wait_ms"),
+                            "reason": evt.get("reason"),
+                            "message": evt.get("message", ""),
+                        },
+                        created=created,
+                        model=model,
+                    )
                 elif evt_type == "error":
                     delta: dict[str, Any] = {"message": evt["message"]}
                     if evt.get("recoverable"):
@@ -265,7 +289,7 @@ async def chat_stream(
                 yield get_sse_event(
                     mid,
                     "error",
-                    {"message": "服务端内部错误，请重试。"},
+                    {"message": "服务端发生内部错误，本轮生成已中断，请重新发送消息。"},
                     finish_reason="error",
                     created=created,
                     model=model,

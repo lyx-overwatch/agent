@@ -88,6 +88,7 @@ export default function ConversationSidebar() {
         />
       )}
       <aside
+        data-collapsed={sidebarCollapsed || undefined}
         className={classNames(
           'fixed lg:static inset-y-0 left-0 z-50 w-60 bg-white border-r border-gray-200 flex flex-col transition-[width,transform] duration-200',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
@@ -96,18 +97,10 @@ export default function ConversationSidebar() {
         )}
       >
         {/* 顶部：展开态 Logo + 收起；折叠态仅展开按钮 */}
-        <div
-          className={classNames(
-            'h-12 flex items-center justify-between px-4',
-            sidebarCollapsed && 'lg:justify-center lg:px-2',
-          )}
-        >
+        <div className={classNames('h-12 flex items-center justify-between px-4', s.sidebarTopBar)}>
           <Link
             href="/agc-agent"
-            className={classNames(
-              'flex items-center hover:opacity-80 transition-opacity',
-              sidebarCollapsed && 'lg:hidden',
-            )}
+            className={classNames('flex items-center hover:opacity-80 transition-opacity', s.sidebarLogo)}
           >
             <svg
               width="24"
@@ -129,7 +122,7 @@ export default function ConversationSidebar() {
             onClick={handleCollapse}
             className={classNames(
               'p-2 -mr-2 flex items-center justify-center hover:bg-gray-100 rounded-md transition-colors',
-              sidebarCollapsed && 'lg:hidden',
+              s.sidebarCollapseBtn,
             )}
           >
             <PanelLeftClose className="w-4 h-4 text-gray-600" />
@@ -138,17 +131,14 @@ export default function ConversationSidebar() {
             type="button"
             title="展开侧边栏"
             onClick={() => setSidebarCollapsed(false)}
-            className={classNames(
-              'hidden p-2 hover:bg-gray-100 rounded-md transition-colors',
-              sidebarCollapsed && 'lg:inline-flex',
-            )}
+            className={classNames('hidden p-2 hover:bg-gray-100 rounded-md transition-colors', s.sidebarExpandBtn)}
           >
             <PanelLeftOpen className="w-4 h-4 text-gray-600" />
           </button>
         </div>
 
         {/* 导航（折叠时仅图标居中） */}
-        <nav className={classNames('px-3 py-3 space-y-1', sidebarCollapsed && 'lg:px-1')}>
+        <nav className={classNames('px-3 py-3 space-y-1', s.sidebarNav)}>
           {NAV.map((item) => {
             const active = isNavActive(item.href);
             const Icon = item.icon;
@@ -158,17 +148,15 @@ export default function ConversationSidebar() {
                 href={item.href}
                 title={item.label}
                 className={classNames(
-                  'flex items-center rounded-md text-sm font-medium transition-colors',
-                  sidebarCollapsed
-                    ? 'lg:justify-center lg:px-0 py-2'
-                    : 'gap-3 px-3 py-2',
+                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                  s.sidebarNavItem,
                   active
                     ? 'bg-gray-100 text-gray-900'
                     : 'text-gray-600 hover:bg-gray-50',
                 )}
               >
                 <Icon className="w-4 h-4 shrink-0" />
-                <span className={classNames(sidebarCollapsed && 'lg:hidden')}>
+                <span className={s.sidebarNavLabel}>
                   {item.label}
                 </span>
               </Link>
@@ -181,7 +169,7 @@ export default function ConversationSidebar() {
           className={classNames(
             'flex-1 overflow-y-auto px-3 py-2 space-y-1',
             s.skillhubScroll,
-            sidebarCollapsed && 'lg:hidden',
+            s.sidebarConvList,
           )}
         >
           <div className="text-xs text-gray-400 mb-2 px-3">最近会话</div>
@@ -256,8 +244,8 @@ export default function ConversationSidebar() {
               }
             }}
             className={classNames(
-              'w-full flex items-center hover:bg-gray-50 transition-colors',
-              sidebarCollapsed ? 'lg:justify-center lg:px-0 py-3' : 'gap-3 px-4 py-3',
+              'w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors',
+              s.sidebarUserBtn,
             )}
           >
             <Image
@@ -267,15 +255,10 @@ export default function ConversationSidebar() {
               height={32}
               className="rounded-full shrink-0"
             />
-            <span className={classNames('flex-1 min-w-0 text-left', sidebarCollapsed && 'lg:hidden')}>
+            <span className={classNames('flex-1 min-w-0 text-left', s.sidebarUserName)}>
               <span className="block text-sm text-gray-900 truncate">{displayName}</span>
             </span>
-            <ChevronUp
-              className={classNames(
-                'w-4 h-4 text-gray-400 shrink-0',
-                sidebarCollapsed && 'lg:hidden',
-              )}
-            />
+            <ChevronUp className={classNames('w-4 h-4 text-gray-400 shrink-0', s.sidebarChevron)} />
           </button>
         </div>
       </aside>

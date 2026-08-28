@@ -3,6 +3,7 @@
 import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import InputArea from './components/InputArea';
+import MobileSidebarToggle from './components/MobileSidebarToggle';
 import { useSkillhubChat } from './components/skillhub-chat';
 
 /** 工作台（默认欢迎页，无「新对话」按钮；发消息即新建会话并跳转详情页） */
@@ -24,6 +25,7 @@ function SkillhubPageInner() {
 
   return (
     <main className="flex-1 flex flex-col min-w-0 relative bg-white">
+      <MobileSidebarToggle />
       <div className="absolute inset-0 flex items-center justify-center px-4">
         <div className="relative w-full max-w-2xl">
           <h1 className="absolute bottom-full left-0 right-0 mb-10 text-center text-2xl font-bold text-gray-900">

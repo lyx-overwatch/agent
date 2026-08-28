@@ -22,6 +22,15 @@ export async function pyEventsourceFetch(
   const token = localStorage.getItem('token') ?? '';
   const path = url.startsWith('/') ? url : `/${url}`;
 
+  // onClose 幂等收尾：正常 EOF 与「收到 [DONE] 后主动 abort」都会走到这里，
+  // 避免重复触发 refreshConversations。
+  let closed = false;
+  const finish = () => {
+    if (closed) return;
+    closed = true;
+    onClose();
+  };
+
   await fetchEventSource(`/py/api${path}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
@@ -29,7 +38,14 @@ export async function pyEventsourceFetch(
     signal: abortController.signal,
     openWhenHidden: true,
     onmessage(event) {
-      if (event.data === '[DONE]') return;
+      if (event.data === '[DONE]') {
+        // 后端已完整结束。主动 abort 让 fetchEventSource 立即正常 resolve，而不是
+        // 继续读 EOF —— Next 反代在流结束后可能用 RST 重置连接，浏览器会把后续读
+        // 报成 `TypeError: network error`，进而误触发「网络连接中断，请重试」。
+        finish();
+        abortController.abort();
+        return;
+      }
       try {
         const parsed = JSON.parse(event.data);
         if (parsed && typeof parsed === 'object') onMessage(parsed, event.event);
@@ -38,7 +54,8 @@ export async function pyEventsourceFetch(
       }
     },
     onclose() {
-      onClose();
+      // 无 [DONE] 的正常 EOF（如后端前台异常后直接关闭）：收尾一次
+      finish();
     },
     onerror(err) {
       onError(err);

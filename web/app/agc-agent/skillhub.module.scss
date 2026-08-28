@@ -96,3 +96,41 @@
 .hideScrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* ── 侧边栏收起（方案 A）─────────────────────────────────────
+   只在容器加 data-collapsed，子元素保持一套固定类名；
+   收起态视觉全部集中在此，用后代选择器处理，不再散写 JS 三元。 */
+[data-collapsed] {
+  @media (min-width: 1024px) {
+    .sidebarTopBar {
+      justify-content: center;
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+    .sidebarLogo,
+    .sidebarCollapseBtn,
+    .sidebarNavLabel,
+    .sidebarConvList,
+    .sidebarUserName,
+    .sidebarChevron {
+      display: none;
+    }
+    .sidebarExpandBtn {
+      display: inline-flex;
+    }
+    .sidebarNav {
+      padding-left: 0.25rem;
+      padding-right: 0.25rem;
+    }
+    .sidebarNavItem {
+      justify-content: center;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    .sidebarUserBtn {
+      justify-content: center;
+      padding-left: 0;
+      padding-right: 0;
+    }
+  }
+}

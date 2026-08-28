@@ -16,6 +16,7 @@ import SkillCard from '../components/SkillCard';
 import UploadSkillModal from '../components/UploadSkillModal';
 import SkillDetailModal from '../components/SkillDetailModal';
 import RejectSkillModal from '../components/RejectSkillModal';
+import MobileSidebarToggle from '../components/MobileSidebarToggle';
 import { hashColor, initialOf } from '../lib/skill';
 import type { Skill, SkillReviewStatus } from '../types';
 import s from '../skillhub.module.scss';
@@ -75,7 +76,7 @@ function Grid({ empty, children }: { empty: boolean; children: React.ReactNode }
   );
 }
 
-/** 技能页（phase2：技能广场 / 我的技能 / 审核 三 tab） */
+/** 技能页（phase2：市场 / 个人 / 审核 三 tab） */
 export default function SkillsPage() {
   const router = useRouter();
   const { role } = useSkillhubChat();
@@ -110,7 +111,7 @@ export default function SkillsPage() {
     } catch (e) {
       console.warn('[skillhub] getMarketplace failed', e);
       setMarketError(true);
-      AlertError('加载技能广场失败');
+      AlertError('加载市场失败');
     } finally {
       setMarketLoading(false);
     }
@@ -129,7 +130,7 @@ export default function SkillsPage() {
     } catch (e) {
       console.warn('[skillhub] load mine failed', e);
       setMineError(true);
-      AlertError('加载我的技能失败');
+      AlertError('加载个人失败');
     } finally {
       setMineLoading(false);
     }
@@ -258,7 +259,7 @@ export default function SkillsPage() {
       displayName || undefined,
       description || undefined,
     );
-    toast.success(`已上传「${res.display_name}」为草稿，可到「我的技能」发布`);
+    toast.success(`已上传「${res.display_name}」为草稿，可到「个人」发布`);
     loadMine();
   };
 
@@ -280,15 +281,16 @@ export default function SkillsPage() {
 
   return (
     <main className="flex-1 flex flex-col min-w-0 relative bg-white">
+      <MobileSidebarToggle />
       <div className={`flex-1 overflow-y-auto ${s.skillhubScroll}`}>
-        <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="max-w-7xl mx-auto px-4 pt-2 pb-6 lg:pt-6">
           {/* Tab 栏 */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 justify-center lg:justify-start">
             <button type="button" className={tabBtn(tab === 'market')} onClick={() => handleTabChange('market')}>
-              技能广场
+              市场
             </button>
             <button type="button" className={tabBtn(tab === 'mine')} onClick={() => handleTabChange('mine')}>
-              我的技能
+              个人
             </button>
             {isAdmin && (
               <button type="button" className={tabBtn(tab === 'review')} onClick={() => handleTabChange('review')}>
@@ -297,14 +299,14 @@ export default function SkillsPage() {
             )}
           </div>
 
-          {/* 技能广场 */}
+          {/* 市场 */}
           {tab === 'market' && (
             <div className="mt-5">
               {marketLoading && marketplace.length === 0 ? (
                 <p className="text-xs text-gray-400 py-16 text-center">加载中…</p>
               ) : marketError ? (
                 <div className="flex flex-col items-center justify-center text-center py-16 gap-3">
-                  <p className="text-xs text-gray-400">技能广场加载失败</p>
+                  <p className="text-xs text-gray-400">市场加载失败</p>
                   <button
                     type="button"
                     onClick={loadMarketplace}
@@ -330,7 +332,7 @@ export default function SkillsPage() {
             </div>
           )}
 
-          {/* 我的技能 */}
+          {/* 个人 */}
           {tab === 'mine' && (
             <div className="mt-5">
               {/* 我的创建 */}
@@ -360,7 +362,7 @@ export default function SkillsPage() {
                 <p className="text-xs text-gray-400 py-8 text-center">加载中…</p>
               ) : mineError ? (
                 <div className="flex flex-col items-center justify-center text-center py-8 gap-3">
-                  <p className="text-xs text-gray-400">我的技能加载失败</p>
+                  <p className="text-xs text-gray-400">个人加载失败</p>
                   <button
                     type="button"
                     onClick={loadMine}

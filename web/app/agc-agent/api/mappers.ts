@@ -295,6 +295,15 @@ export function mapWireEvent(data: unknown): StreamEvent | null {
         run_id: delta.run_id,
         elapsed_seconds: delta.elapsed_seconds,
       };
+    case 'llm_retry':
+      return {
+        type: 'llm_retry',
+        attempt: delta.attempt,
+        max_attempts: delta.max_attempts,
+        wait_ms: delta.wait_ms,
+        reason: delta.reason,
+        message: delta.message,
+      };
     case 'progress':
       return {
         type: 'progress',
