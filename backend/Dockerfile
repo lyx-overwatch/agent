@@ -41,7 +41,7 @@ COPY packages/harness/README.md packages/harness/
 # 2. 安装外部依赖。--no-install-workspace 跳过本地 workspace member 的
 #    editable 安装，因此本层不依赖 agent_sdk 源码——改 agent_sdk 代码不再使本层失效。
 #    （--mount 需要 BuildKit；若在旧版 Docker 上构建失败，可删除该参数）
-RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache \
+RUN \
     uv sync --frozen --no-dev --no-install-workspace
 
 # ── 运行时代码层 ─────────────────────────────────────────────────────────────
@@ -55,7 +55,7 @@ COPY migrations/ migrations/
 
 # 安装 workspace members（root + agent-sdk）为 editable：外部依赖已就绪，
 # 只需构建两个本地包的 editable wheel，速度很快
-RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache \
+RUN \
     uv sync --frozen --no-dev
 
 # 将 .venv 加入 PATH，使 uvicorn 可直接调用
