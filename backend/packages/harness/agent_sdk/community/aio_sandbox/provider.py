@@ -367,19 +367,27 @@ class AioSandboxProvider(SandboxProvider):
         return mounts
 
     def _get_thread_mounts(self, thread_id: str) -> list[tuple[str, str, bool]]:
-        base = self._host_base_dir
+        # DooD path split: directories must be created on the *container-side*
+        # path (thread_base_dir, e.g. /agent-test) so they actually land on the
+        # host bind-mount target; the Docker daemon needs the *host-side* path
+        # (host_base_dir, e.g. /opt/heyu-agent/data/agent-test) as the mount
+        # source. When not running DooD the two are identical, so this is a
+        # no-op.
         user_id = get_effective_user_id()
-        thread_dir = base / "users" / (user_id or "default") / "threads" / thread_id
-        workspace = thread_dir / "workspace"
-        uploads = thread_dir / "uploads"
-        outputs = thread_dir / "outputs"
+        rel = Path("users") / (user_id or "default") / "threads" / thread_id
+        local_thread_dir = self._thread_base_dir / rel
+        host_thread_dir = self._host_base_dir / rel
+
+        workspace = local_thread_dir / "workspace"
+        uploads = local_thread_dir / "uploads"
+        outputs = local_thread_dir / "outputs"
         for d in (workspace, uploads, outputs):
             d.mkdir(parents=True, exist_ok=True)
 
         return [
-            (str(workspace), f"{VIRTUAL_PATH_PREFIX}/workspace", False),
-            (str(uploads), f"{VIRTUAL_PATH_PREFIX}/uploads", False),
-            (str(outputs), f"{VIRTUAL_PATH_PREFIX}/outputs", False),
+            (str(host_thread_dir / "workspace"), f"{VIRTUAL_PATH_PREFIX}/workspace", False),
+            (str(host_thread_dir / "uploads"), f"{VIRTUAL_PATH_PREFIX}/uploads", False),
+            (str(host_thread_dir / "outputs"), f"{VIRTUAL_PATH_PREFIX}/outputs", False),
         ]
 
     # ── Idle timeout ───────────────────────────────────────────────────
@@ -539,7 +547,9 @@ class AioSandboxProvider(SandboxProvider):
         return self._create_sandbox(thread_id, sandbox_id)
 
     def _discover_or_create_with_lock(self, thread_id: str, sandbox_id: str) -> str:
-        base = self._host_base_dir
+        # Create the thread dir + lock file on the container-side path so they
+        # land on the real host directory (see _get_thread_mounts).
+        base = self._thread_base_dir
         user_id = get_effective_user_id()
         thread_dir = base / "users" / (user_id or "default") / "threads" / thread_id
         thread_dir.mkdir(parents=True, exist_ok=True)
