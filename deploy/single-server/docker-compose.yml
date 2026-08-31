@@ -57,9 +57,17 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${AGENT_TEST_HOST_DIR:?请在 .env 中设置 AGENT_TEST_HOST_DIR}:/agent-test
+      # 取证日志落盘：/app/logs → 宿主机 ${AGENT_TEST_HOST_DIR}/logs（容器重建不丢）
+      - ${AGENT_TEST_HOST_DIR:?请在 .env 中设置 AGENT_TEST_HOST_DIR}/logs:/app/logs
     # 1G 内存机器：限制 backend 内存上限，防止单容器吃光整机。
     # 升级到 2G+ 后删掉（避免人为限制性能）。
     mem_limit: 768m
+    # 应用日志走 json-file 驱动并轮转，防止无限膨胀；仍只在容器生命周期内，重建会丢。
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     # 调试时可放开直接访问后端
     # ports:
     #   - "8001:8001"
