@@ -33,10 +33,15 @@ cp backend.env.example backend.env
 #   编辑 .env：POSTGRES_PASSWORD、AGENT_TEST_HOST_DIR（宿主机绝对路径）
 #   编辑 backend.env：SECRET_KEY、VOLCENGINE_API_KEY 等密钥
 
-# 2. 确保沙箱工作区目录存在
+# 2. 生成 backend 运行配置（config.yaml / alembic.ini 被 .gitignore 忽略，不在仓库里，需从模板生成）
+cp ../../backend/config.example.yaml ../../backend/config.yaml
+cp ../../backend/alembic.ini.example ../../backend/alembic.ini
+#   低配机器按需改 ../../backend/config.yaml（见下方「1G 内存低配部署」）
+
+# 3. 确保沙箱工作区目录存在
 mkdir -p "$AGENT_TEST_HOST_DIR"     # 即 .env 里填的绝对路径
 
-# 3. 构建并启动
+# 4. 构建并启动
 make up        # 等价 docker compose build && docker compose up -d
 
 # 查看日志 / 状态
