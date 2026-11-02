@@ -158,9 +158,24 @@ vision:
 # ============================================================================
 
 sandbox:
+  # provider 取值:
+  #   local  — 直接在 backend 进程内用 subprocess 执行命令（cwd = workspace）。
+  #            不依赖任何沙箱镜像，单机部署可省下 ~7GB 磁盘；但**没有隔离**：
+  #            命令以 backend 容器身份运行，能读到容器内所有密钥和文件系统。
+  #            仅适合单用户自用；多用户 / 公网服务请用 docker。
+  #   docker — 每次工具调用时起沙箱容器；首次使用会自动拉取 7GB 镜像。
+  #   auto   — 优先 docker，Docker 不可用时回退 local。
   provider: auto
   workspace:
     ../agent-test
+
+  # ── local 模式下是否允许 bash / Python 命令 ──────────────────────────
+  # 默认 false：bash 工具不会注入给模型（read_file / write_file / ls /
+  # glob / grep 仍然可用）；设为 true 才能执行命令。
+  # 该开关对 docker / auto 模式无效（Docker 沙箱始终有 bash）。
+  # ⚠️ true 时命令直接运行在 backend 容器内，若容器挂载了 docker.sock，
+  #    等价于把宿主机 root 权限交给模型。
+  allow_host_bash: false
 
     # ── K8s Provisioner ──────────────────────────────────────────────────
   # 为空时使用 LocalContainerBackend（本地 Docker 直接管理容器）。

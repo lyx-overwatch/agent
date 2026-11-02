@@ -2,7 +2,12 @@
 # Heyu Agent 单服务器部署（Docker Compose）
 # ============================================================================
 # 服务: postgres + backend (FastAPI) + frontend (Next.js)
-# 沙箱: backend 挂载 docker.sock（DooD），通过宿主机 daemon 起沙箱容器。
+# 沙箱: 默认 local 模式（backend 容器内 subprocess 执行，无需沙箱镜像，省 ~7GB 磁盘）。
+#       若要切回 Docker 沙箱隔离，需同时：
+#         1. config.yaml 里 sandbox.provider 改为 docker（或 auto）
+#         2. 恢复下方注释掉的 docker.sock 挂载、SKILLHUB_HOST_BASE_DIR /
+#            SKILLHUB_SANDBOX_HOST 环境变量与 extra_hosts
+#       注意 local 模式无隔离：命令以 backend 容器身份执行，且能读取容器内所有密钥。
 #
 # 使用前:
 #   1. cp .env.example .env              # 填 POSTGRES_PASSWORD、AGENT_TEST_HOST_DIR
@@ -42,20 +47,22 @@ services:
       - ./backend.env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agent}
-      # 单机 DooD：沙箱容器由宿主机 daemon 管理，bind-mount 源必须是宿主机真实路径
-      SKILLHUB_HOST_BASE_DIR: ${AGENT_TEST_HOST_DIR:?请在 .env 中设置 AGENT_TEST_HOST_DIR（宿主机绝对路径）}
-      SKILLHUB_SANDBOX_HOST: host.docker.internal
+      # Docker 沙箱模式才需要（local 模式不使用）：
+      # SKILLHUB_HOST_BASE_DIR: ${AGENT_TEST_HOST_DIR:?请在 .env 中设置 AGENT_TEST_HOST_DIR（宿主机绝对路径）}
+      # SKILLHUB_SANDBOX_HOST: host.docker.internal
       ENVIRONMENT: production
       STORAGE_BACKEND: local
       RATE_LIMIT_BACKEND: memory
       CORS_ORIGINS: ""
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    # Docker 沙箱模式才需要（沙箱容器由宿主机 daemon 管理）：
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      # local 沙箱模式不需要 docker.sock（切回 docker 沙箱时恢复本行）：
+      # - /var/run/docker.sock:/var/run/docker.sock
       - ${AGENT_TEST_HOST_DIR:?请在 .env 中设置 AGENT_TEST_HOST_DIR}:/agent-test
       # 取证日志落盘：/app/logs → 宿主机 ${AGENT_TEST_HOST_DIR}/logs（容器重建不丢）
       - ${AGENT_TEST_HOST_DIR:?请在 .env 中设置 AGENT_TEST_HOST_DIR}/logs:/app/logs

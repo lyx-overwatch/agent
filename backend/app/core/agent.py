@@ -18,6 +18,7 @@ from agent_sdk.community.vision.tools import make_view_image_tool
 from agent_sdk.community.web_search.tools import web_search
 from agent_sdk.mcp import get_mcp_tools
 from agent_sdk.sandbox import SandboxPathResolver, make_sandbox_tools
+from agent_sdk.sandbox.local.provider import LocalSandboxProvider
 from agent_sdk.skills.tools import make_skill_tools
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
@@ -81,6 +82,13 @@ def _build_agent(
     # ── 模型 ──────────────────────────────────────────────────────────
     model = cfg.create_model(name=model_name, thinking_enabled=thinking_enabled)
 
+    # ── 沙箱能力判定 ──────────────────────────────────────────────────
+    # local provider 把命令直接跑在 backend 容器里（不依赖 Docker 镜像，
+    # 但也没有隔离）；此时 bash 是否可用由 sandbox.allow_host_bash 决定。
+    # Docker / K8s provider 不受该策略影响，始终具备 bash。
+    local_sandbox = isinstance(cfg.sandbox_provider, LocalSandboxProvider)
+    host_bash_allowed = not local_sandbox or (cfg.host_bash_policy is not None and cfg.host_bash_policy.is_host_bash_allowed())
+
     # ── Sandbox 工具 ──────────────────────────────────────────────────
     resolver = SandboxPathResolver(cfg.sandbox_config)
     sandbox_bundle = make_sandbox_tools(
@@ -97,6 +105,10 @@ def _build_agent(
         sandbox_bundle.write_file,
         sandbox_bundle.str_replace,
     ]
+    if not host_bash_allowed:
+        # 不下发必然失败的 bash 工具：避免模型反复重试，也让工具列表与
+        # system prompt 里描述的能力一致。
+        sandbox_tools.remove(sandbox_bundle.bash)
 
     # ── Skill 工具 ────────────────────────────────────────────────────
     # 始终注入 app 层回调：内置技能走文件系统，个人/已添加技能走 OBS。
@@ -133,6 +145,24 @@ def _build_agent(
 
     # ── 动态子代理列表 ──────────────────────────────────────────────
     available_subagents_block = _build_available_subagents_block(cfg.subagent_registry)
+
+    # ── 能力描述（与当前 sandbox 配置保持一致）─────────────────────────
+    # 避免 system prompt 承诺了实际未下发的 bash 能力。
+    if host_bash_allowed:
+        capability_line = (
+            "You can run shell/Python commands (bash), read/write/edit files, "
+            "navigate the filesystem (ls/glob/grep), and delegate subtasks to subagents (task). "
+            "Use the available tools directly — do not claim you cannot perform an action "
+            "without first trying the appropriate tool."
+        )
+    else:
+        capability_line = (
+            "You can read/write/edit files, navigate the filesystem (ls/glob/grep), "
+            "and delegate subtasks to subagents (task). "
+            "Shell/Python command execution is DISABLED in this deployment: do not try to run "
+            "commands, install packages, or execute scripts — tell the user this capability "
+            "is unavailable instead."
+        )
 
     system_prompt = (
         "You are Heyu Agent, an AI assistant with access to a sandbox environment.\n\n"
@@ -189,11 +219,7 @@ def _build_agent(
         "Skills (host): use `read_skill('<name>')` to load SKILL.md; "
         "`read_skill('<name>', file='path/...')` for supporting files; "
         "`read_skill('<name>', file='dir/')` to list a subdirectory.\n"
-        "</workspace>\n\n"
-        "You can run shell/Python commands (bash), read/write/edit files, "
-        "navigate the filesystem (ls/glob/grep), and delegate subtasks to subagents (task). "
-        "Use the available tools directly — do not claim you cannot perform an action "
-        "without first trying the appropriate tool."
+        "</workspace>\n\n" + capability_line
     )
 
     # ── MCP 工具提示 ─────────────────────────────────────────────────
